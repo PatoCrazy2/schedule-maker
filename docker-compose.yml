@@ -1,0 +1,54 @@
+services:
+  # 1. Tu Backend (FastAPI)
+  backend:
+    build: ./backend
+    container_name: schedule_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend/app:/code/app # Esto permite que si cambias código, se actualice sin reiniciar
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/schedule_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  # 2. Tu Frontend (React + Vite)
+  frontend:
+    build: ./frontend
+    container_name: schedule_frontend
+    volumes:
+      - ./frontend/src:/app/src # Hot-reload para el frontend
+      # La siguiente línea evita que se borren los node_modules del contenedor
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+  # 3. Base de Datos (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: schedule_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Aquí se guardan los datos para que no se borren
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=schedule_db
+    ports:
+      - "5432:5432"
+
+  # 4. Redis (Para colas de tareas futuras)
+  redis:
+    image: redis:alpine
+    container_name: schedule_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
