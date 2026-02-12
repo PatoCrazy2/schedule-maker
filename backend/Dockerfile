@@ -1,12 +1,15 @@
 # backend/Dockerfile
 FROM python:3.11-slim
 
-# Instalar dependencias del sistema para Camelot y OpenCV
+# Dependencias: Camelot/OpenCV + Tesseract (OCR) + poppler (pdf2image)
 RUN apt-get update && apt-get install -y \
     ghostscript \
     ffmpeg \
     libsm6 \
     libxext6 \
+    tesseract-ocr \
+    tesseract-ocr-spa \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
