@@ -1,10 +1,15 @@
 import logging
+<<<<<<< HEAD
 from contextlib import asynccontextmanager # <--- 1. Importar esto
+=======
+
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 from fastapi import FastAPI
 from app.config import settings
 from app.routers import export, pdf, schedules
 from app.core.database import init_db  
 
+<<<<<<< HEAD
 # Configuración de Logs
 logging.getLogger("app").setLevel(logging.INFO)
 
@@ -22,11 +27,25 @@ app = FastAPI(
     title=settings.app_name,
     description="API para extraer oferta de PDF, generar horarios y exportar a PDF/Calendario.",
     lifespan=lifespan # <--- CONECTARLO AQUÍ
+=======
+from app.config import settings
+
+logging.getLogger("app").setLevel(logging.INFO)
+from app.routers import export, pdf, schedules
+
+app = FastAPI(
+    title=settings.app_name,
+    description="API para extraer oferta de PDF, generar horarios y exportar a PDF/Calendario.",
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 )
 
 app.include_router(pdf.router, prefix="/api")
 app.include_router(schedules.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+<<<<<<< HEAD
+=======
+
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 @app.get("/")
 def read_root() -> dict:

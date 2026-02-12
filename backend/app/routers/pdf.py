@@ -1,6 +1,7 @@
 """Endpoints para subida y extracción de PDF."""
 from pathlib import Path
 
+<<<<<<< HEAD
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
 from sqlmodel import Session, select
 from datetime import time
@@ -13,6 +14,15 @@ from app.services.ocr_pdf import ocr_disponible
 from app.services.pdf_extractor import PdfExtractorService
 from app.services.parser_mapa import ParserMapaCurricular
 from app.utils.hashing import compute_file_hash
+=======
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+
+from app.config import settings
+from app.models.schemas import MapaCurricularExtraido, OfertaExtraida
+from app.services.ocr_pdf import ocr_disponible
+from app.services.pdf_extractor import PdfExtractorService
+from app.services.parser_mapa import ParserMapaCurricular
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 extractor = PdfExtractorService()
@@ -76,6 +86,7 @@ def extract_from_data(
 
 
 @router.post("/upload", response_model=OfertaExtraida)
+<<<<<<< HEAD
 async def upload_and_extract(
     file: UploadFile = File(...),
     session: Session = Depends(get_session)
@@ -88,11 +99,26 @@ async def upload_and_extract(
     """
     print(f"📥 Recibiendo archivo: {file.filename}")
     
+=======
+async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
+    """
+    Sube un PDF de oferta (ej. Banner BUAP) y extrae filas en formato:
+
+    **NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon**
+
+    Respuesta:
+    - **filas**: lista de registros, uno por cada combinación dia/hora/salon
+      (ej. 50030, CCOS 260, Redes de Computadoras, OO1, L, 10:00-10:59, TREVINO - SANCHEZ DANIEL, 1CCO4/305).
+    - **materias**: vista agrupada por materia para horarios y export.
+    - **archivos_procesados**: nombre del PDF.
+    """
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
 
     upload_dir = _ensure_upload_dir()
     size_mb = settings.max_upload_mb
+<<<<<<< HEAD
     
     # Leer contenido
     try:
@@ -101,12 +127,16 @@ async def upload_and_extract(
         print(f"❌ Error leyendo archivo: {e}")
         raise HTTPException(status_code=400, detail="Error leyendo el archivo")
 
+=======
+    content = await file.read()
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     if len(content) > size_mb * 1024 * 1024:
         raise HTTPException(
             status_code=413,
             detail=f"El archivo supera el límite de {size_mb} MB",
         )
 
+<<<<<<< HEAD
     # 1. Calcular Hash
     file_hash = compute_file_hash(content)
     print(f"🔑 Hash del archivo: {file_hash}")
@@ -234,6 +264,10 @@ async def upload_and_extract(
         raise HTTPException(status_code=500, detail=f"Error guardando en BD: {str(e)}")
 
     return oferta
+=======
+    return extractor.extract_from_bytes(content, file.filename or "document.pdf")
+
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 @router.post("/upload-mapa", response_model=MapaCurricularExtraido)
 async def upload_mapa_curricular(

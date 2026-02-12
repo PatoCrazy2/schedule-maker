@@ -26,6 +26,7 @@ class BannerOfertaParser(BaseOfertaParser):
     """Parser para ofertas Banner BUAP: columnas NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon."""
 
     def puede_parsear(self, contenido: ContenidoPDF, nombre_archivo: str = "") -> bool:
+<<<<<<< HEAD
         # 2. Debe contener palabras clave
         texto = (contenido.texto_completo or "").upper()
         if not re.search(r"NRC|CLAVE|MATERIA|SECC|DIAS|HORA|PROFESOR|SALON", texto):
@@ -45,6 +46,16 @@ class BannerOfertaParser(BaseOfertaParser):
                         return False
         
         return True
+=======
+        if contenido.tablas_por_pagina and any(t for t in contenido.tablas_por_pagina):
+            return True
+        texto = (contenido.texto_completo or "").upper()
+        if "BANNER" in nombre_archivo.upper():
+            return True
+        if re.search(r"NRC|CLAVE|SECC|LUNES|MARTES|HORA|GRUPO|MATERIA", texto):
+            return True
+        return False
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
     def extraer_filas(
         self, contenido: ContenidoPDF, nombre_archivo: str = ""
@@ -197,20 +208,33 @@ def _filas_a_materias(filas: list[FilaOferta]) -> list[MateriaExtraida]:
                 dia=f.dias,
                 hora_inicio=f.hora_inicio,
                 hora_fin=f.hora_fin,
+<<<<<<< HEAD
                 aula=f.salon or None,
+=======
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
             )
             for f in grupo
         ]
         profesor = grupo[0].profesor if grupo else ""
+<<<<<<< HEAD
         materias.append(
             MateriaExtraida(
                 nrc=nrc,
+=======
+        aula = grupo[0].salon if grupo else ""
+        materias.append(
+            MateriaExtraida(
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
                 nombre=materia,
                 clave=clave,
                 grupo=secc,
                 horarios=horarios,
                 profesor=profesor or None,
+<<<<<<< HEAD
                 creditos=None,
+=======
+                aula=aula or None,
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
             )
         )
     return materias

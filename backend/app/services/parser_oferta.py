@@ -37,9 +37,14 @@ class ParserOferta:
     def _parsear(self, contenido: ContenidoPDF, nombre_archivo: str) -> OfertaExtraida:
         parser = self.factory.obtener_parser(contenido, nombre_archivo)
         if not parser:
+<<<<<<< HEAD
             logger.warning("Ningún parser pudo procesar %s", nombre_archivo)
             # Lanzamos error para que el endpoint devuelva 422 y no guarde en BD
             raise ValueError(f"No se encontró un parser válido para el archivo: {nombre_archivo}")
+=======
+            logger.warning("Ningún parser pudo procesar %s; devolviendo vacío", nombre_archivo)
+            return OfertaExtraida(archivos_procesados=[nombre_archivo])
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
         logger.info("Parser elegido para %s: %s", nombre_archivo, type(parser).__name__)
         filas = parser.extraer_filas(contenido, nombre_archivo)
         materias = _filas_a_materias(filas) if filas else parser.extraer_materias(contenido, nombre_archivo)

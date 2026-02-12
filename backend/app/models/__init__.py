@@ -1,4 +1,5 @@
 from app.models.schemas import (
+<<<<<<< HEAD
     # --- New clean models ---
     DayEnum,
     TimeSlotBase,
@@ -10,6 +11,8 @@ from app.models.schemas import (
     PlanRequirement,
     ScheduleMatchResponse,
     # --- Legacy models (backward compat) ---
+=======
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     FilaOferta,
     MateriaExtraida,
     MateriaPlan,
@@ -20,6 +23,7 @@ from app.models.schemas import (
     OfertaExtraida,
     ScheduleOption,
     ExportFormat,
+<<<<<<< HEAD
     normalizar_hora_militar,
 )
 
@@ -35,6 +39,11 @@ __all__ = [
     "PlanRequirement",
     "ScheduleMatchResponse",
     # Legacy
+=======
+)
+
+__all__ = [
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     "FilaOferta",
     "MateriaExtraida",
     "MateriaPlan",
@@ -45,5 +54,8 @@ __all__ = [
     "OfertaExtraida",
     "ScheduleOption",
     "ExportFormat",
+<<<<<<< HEAD
     "normalizar_hora_militar",
+=======
+>>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 ]
