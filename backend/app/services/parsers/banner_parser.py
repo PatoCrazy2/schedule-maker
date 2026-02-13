@@ -186,19 +186,20 @@ def _filas_a_materias(filas: list[FilaOferta]) -> list[MateriaExtraida]:
                 dia=f.dias,
                 hora_inicio=f.hora_inicio,
                 hora_fin=f.hora_fin,
+                aula=f.salon or None,
             )
             for f in grupo
         ]
         profesor = grupo[0].profesor if grupo else ""
-        aula = grupo[0].salon if grupo else ""
         materias.append(
             MateriaExtraida(
+                nrc=nrc,
                 nombre=materia,
                 clave=clave,
                 grupo=secc,
                 horarios=horarios,
                 profesor=profesor or None,
-                aula=aula or None,
+                creditos=None,
             )
         )
     return materias

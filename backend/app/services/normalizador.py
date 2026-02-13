@@ -82,18 +82,19 @@ def normalizar_horario_slot(s: HorarioSlot) -> HorarioSlot:
         dia=nombre or codigo or s.dia,
         hora_inicio=normalizar_hora(s.hora_inicio),
         hora_fin=normalizar_hora(s.hora_fin),
+        aula=s.aula.strip() if s.aula else None,
     )
 
 
 def normalizar_materia(m: MateriaExtraida) -> MateriaExtraida:
     """Normaliza una materia (horarios con día y hora)."""
     return MateriaExtraida(
+        nrc=(m.nrc or "").strip() or None,
         nombre=m.nombre.strip(),
         clave=(m.clave or "").strip() or None,
         grupo=(m.grupo or "").strip() or None,
         horarios=[normalizar_horario_slot(s) for s in m.horarios],
         profesor=(m.profesor or "").strip() or None,
-        aula=(m.aula or "").strip() or None,
         creditos=m.creditos,
     )
 
