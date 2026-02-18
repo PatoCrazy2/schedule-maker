@@ -1,13 +1,18 @@
 """Endpoints para subida y extracción de PDF."""
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
+from sqlmodel import Session, select
+from datetime import time
 
 from app.config import settings
-from app.models.schemas import MapaCurricularExtraido, OfertaExtraida
+from app.core.database import get_session
+from app.models.schemas import MapaCurricularExtraido, OfertaExtraida, CourseRead, TimeSlotRead
+from app.models.db_models import SourceFile, Course, TimeSlot
 from app.services.ocr_pdf import ocr_disponible
 from app.services.pdf_extractor import PdfExtractorService
 from app.services.parser_mapa import ParserMapaCurricular
+from app.utils.hashing import compute_file_hash
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 extractor = PdfExtractorService()
@@ -71,32 +76,160 @@ def extract_from_data(
 
 
 @router.post("/upload", response_model=OfertaExtraida)
-async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
+async def upload_and_extract(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session)
+) -> OfertaExtraida:
     """
-    Sube un PDF de oferta (ej. Banner BUAP) y extrae filas en formato:
-
-    **NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon**
-
-    Respuesta:
-    - **filas**: lista de registros, uno por cada combinación dia/hora/salon
-      (ej. 50030, CCOS 260, Redes de Computadoras, OO1, L, 10:00-10:59, TREVINO - SANCHEZ DANIEL, 1CCO4/305).
-    - **materias**: vista agrupada por materia para horarios y export.
-    - **archivos_procesados**: nombre del PDF.
+    Sube un PDF de oferta (ej. Banner BUAP) y extrae filas.
+    
+    Verifica si el archivo ya fue procesado (por hash). Si es así, retorna los datos de la BD.
+    Si no, procesa el PDF, guarda los resultados en la BD y los retorna.
     """
+    print(f"📥 Recibiendo archivo: {file.filename}")
+    
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
 
     upload_dir = _ensure_upload_dir()
     size_mb = settings.max_upload_mb
-    content = await file.read()
+    
+    # Leer contenido
+    try:
+        content = await file.read()
+    except Exception as e:
+        print(f"❌ Error leyendo archivo: {e}")
+        raise HTTPException(status_code=400, detail="Error leyendo el archivo")
+
     if len(content) > size_mb * 1024 * 1024:
         raise HTTPException(
             status_code=413,
             detail=f"El archivo supera el límite de {size_mb} MB",
         )
 
-    return extractor.extract_from_bytes(content, file.filename or "document.pdf")
+    # 1. Calcular Hash
+    file_hash = compute_file_hash(content)
+    print(f"🔑 Hash del archivo: {file_hash}")
+    
+    # 2. Buscar en BD
+    try:
+        # Usamos unique() para que cargue las relaciones correctamente si es necesario en versiones nuevas
+        existing_file = session.exec(select(SourceFile).where(SourceFile.file_hash == file_hash)).first()
+    except Exception as e:
+        print(f"❌ Error consultando DB: {e}")
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
 
+    # Verificar si es un Cache Hit válido (tiene cursos guardados)
+    if existing_file:
+        if not existing_file.courses:
+            print("⚠️ Archivo encontrado pero SIN cursos (Zombie Record). Re-procesando...")
+            # Limpiamos el registro corrupto para re-procesar
+            session.delete(existing_file)
+            session.commit()
+            existing_file = None
+        else:
+            print("⚡ Cache Hit! Retornando datos de la base de datos.")
+            # Reconstruir OfertaExtraida desde la BD
+            materias_recuperadas = []
+            for course in existing_file.courses:
+                horarios_legacy = []
+                for slot in course.time_slots:
+                    start_str = slot.start_time.strftime("%H:%M")
+                    end_str = slot.end_time.strftime("%H:%M")
+                    
+                    from app.models.schemas import HorarioSlot
+                    horarios_legacy.append(HorarioSlot(
+                        dia=slot.day.value,
+                        hora_inicio=start_str,
+                        hora_fin=end_str,
+                        aula=slot.classroom
+                    ))
+                
+                from app.models.schemas import MateriaExtraida
+                materia = MateriaExtraida(
+                    nrc=course.nrc,
+                    nombre=course.subject_name,
+                    clave=course.course_code,
+                    grupo=course.group_code,
+                    profesor=course.professor,
+                    creditos=course.credits,
+                    horarios=horarios_legacy
+                )
+                materias_recuperadas.append(materia)
+                
+            return OfertaExtraida(
+                filas=[],
+                materias=materias_recuperadas,
+                archivos_procesados=[existing_file.filename]
+            )
+
+    # 3. Cache Miss: Procesar PDF
+    print("🐢 Cache Miss. Procesando PDF (esto puede tardar)...")
+    from fastapi.concurrency import run_in_threadpool
+    try:
+        oferta = await run_in_threadpool(extractor.extract_from_bytes, content, file.filename or "document.pdf")
+    except Exception as e:
+        print(f"❌ Error extrayendo PDF: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Falló la extracción del PDF: {str(e)}")
+    
+    # 4. Guardar en BD (Transacción Atomica)
+    print("💾 Guardando en base de datos...")
+    try:
+        # Crear SourceFile pero NO commitear aún
+        new_source = SourceFile(filename=file.filename, file_hash=file_hash)
+        session.add(new_source)
+        
+        for materia in oferta.materias:
+            db_course = Course(
+                nrc=materia.nrc or "",
+                course_code=materia.clave or "",
+                group_code=materia.grupo or "",
+                subject_name=materia.nombre,
+                professor=materia.profesor,
+                credits=materia.creditos,
+                # Enlace directo al objeto, SQLAlchemy resuelve el ID al commitear
+                source_file=new_source 
+            )
+            
+            for h in materia.horarios:
+                try:
+                    start_parts = h.hora_inicio.split(":")
+                    end_parts = h.hora_fin.split(":")
+                    t_start = time(int(start_parts[0]), int(start_parts[1]))
+                    t_end = time(int(end_parts[0]), int(end_parts[1]))
+                except (ValueError, IndexError):
+                    t_start = time(0, 0)
+                    t_end = time(0, 0)
+
+                from app.models.schemas import DayEnum
+                try:
+                    dia_enum = DayEnum(h.dia)
+                except ValueError:
+                    continue
+
+                slot = TimeSlot(
+                    day=dia_enum,
+                    start_time=t_start,
+                    end_time=t_end,
+                    classroom=h.aula
+                )
+                db_course.time_slots.append(slot)
+            
+            session.add(db_course)
+        
+        # Un solo commit al final. Si falla algo, no se guarda nada (ni el SourceFile).
+        session.commit()
+        session.refresh(new_source)
+        print("✅ Guardado exitoso.")
+
+    except Exception as e:
+        print(f"❌ Error guardando en DB: {e}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error guardando en BD: {str(e)}")
+
+    return oferta
 
 @router.post("/upload-mapa", response_model=MapaCurricularExtraido)
 async def upload_mapa_curricular(

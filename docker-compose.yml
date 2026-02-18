@@ -14,6 +14,8 @@ services:
       - ./data:/code/data
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - SCHEDULE_DATA_DIR=/code/data
     depends_on:
