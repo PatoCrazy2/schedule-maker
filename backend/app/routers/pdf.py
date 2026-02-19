@@ -168,6 +168,10 @@ async def upload_and_extract(
     from fastapi.concurrency import run_in_threadpool
     try:
         oferta = await run_in_threadpool(extractor.extract_from_bytes, content, file.filename or "document.pdf")
+    except ValueError as ve:
+        print(f"❌ Error de validación PDF: {ve}")
+        # Retornamos 422 para indicar que el contenido no se pudo procesar (regla de negocio/parser)
+        raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
         print(f"❌ Error extrayendo PDF: {e}")
         import traceback
