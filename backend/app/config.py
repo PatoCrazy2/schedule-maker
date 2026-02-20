@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     debug: bool = False
     upload_dir: Path = Path("uploads")
     data_dir: Path = Path("data")
-    data_dir: Path = Path("data")
     max_upload_mb: int = 20
-    database_url: str = "postgresql://user:password@localhost/schedule_maker_db"
+    database_url: str = "postgresql://user:password@localhost:5432/schedule_db"
+    redis_url: str = "redis://localhost:6379/0"
 
     class Config:
         env_prefix = "SCHEDULE_"

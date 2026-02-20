@@ -1,3 +1,3 @@
-from app.routers import pdf, schedules, export
+from app.routers import pdf, schedules, export, professors
 
-__all__ = ["pdf", "schedules", "export"]
+__all__ = ["pdf", "schedules", "export", "professors"]

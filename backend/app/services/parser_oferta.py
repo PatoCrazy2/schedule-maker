@@ -38,7 +38,6 @@ class ParserOferta:
         parser = self.factory.obtener_parser(contenido, nombre_archivo)
         if not parser:
             logger.warning("Ningún parser pudo procesar %s", nombre_archivo)
-            # Lanzamos error para que el endpoint devuelva 422 y no guarde en BD
             raise ValueError(f"No se encontró un parser válido para el archivo: {nombre_archivo}")
         logger.info("Parser elegido para %s: %s", nombre_archivo, type(parser).__name__)
         filas = parser.extraer_filas(contenido, nombre_archivo)

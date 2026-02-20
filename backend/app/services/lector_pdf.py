@@ -65,6 +65,7 @@ class LectorPDF:
         """Extrae texto y tablas desde bytes (sin escribir en disco)."""
         import io
         buf = io.BytesIO(contenido)
+        buf.seek(0)
         texto_completo = []
         tablas_por_pagina = []
         with pdfplumber.open(buf) as pdf:

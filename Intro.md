@@ -32,6 +32,8 @@ docker-compose up backend
 
 API en http://localhost:8000 y documentación en http://localhost:8000/docs. Endpoints útiles: `GET /api/pdf/list` (lista PDF en `data/`), `POST /api/pdf/extract-from-data?filename=...` (extrae desde un PDF en `data/`), `POST /api/pdf/upload` (subir y extraer otro PDF).
 
+**Cache con Redis**: mismo documento (mismo hash) = reutiliza extracción entre usuarios. Opcional: campo `carrera` para organizar PDFs por carrera.
+
 ## Próximos pasos
 
 - Definir formato exacto de los PDF de entrada (ej. tablas de oferta BUAP) para afinar la extracción.

@@ -26,24 +26,15 @@ class BannerOfertaParser(BaseOfertaParser):
     """Parser para ofertas Banner BUAP: columnas NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon."""
 
     def puede_parsear(self, contenido: ContenidoPDF, nombre_archivo: str = "") -> bool:
-        # 2. Debe contener palabras clave
         texto = (contenido.texto_completo or "").upper()
         if not re.search(r"NRC|CLAVE|MATERIA|SECC|DIAS|HORA|PROFESOR|SALON", texto):
             return False
-
-        # 3. Debe tener tablas
         if not contenido.tablas_por_pagina or not any(t for t in contenido.tablas_por_pagina):
             return False
-
-        # Validación extra: Evitar archivos con columnas extra (mal estructurados)
-        # El formato esperado tiene máximo 8 columnas.
         for pag in contenido.tablas_por_pagina:
             for tabla in pag:
-                if tabla and len(tabla) > 0:
-                    # Checamos la primera fila para ver la cantidad de columnas
-                    if len(tabla[0]) > 8:
-                        return False
-        
+                if tabla and len(tabla) > 0 and len(tabla[0]) < 6:
+                    return False
         return True
 
     def extraer_filas(
@@ -202,6 +193,7 @@ def _filas_a_materias(filas: list[FilaOferta]) -> list[MateriaExtraida]:
             for f in grupo
         ]
         profesor = grupo[0].profesor if grupo else ""
+        salon = grupo[0].salon if grupo else ""
         materias.append(
             MateriaExtraida(
                 nrc=nrc,
@@ -210,6 +202,7 @@ def _filas_a_materias(filas: list[FilaOferta]) -> list[MateriaExtraida]:
                 grupo=secc,
                 horarios=horarios,
                 profesor=profesor or None,
+                aula=salon or None,
                 creditos=None,
             )
         )
