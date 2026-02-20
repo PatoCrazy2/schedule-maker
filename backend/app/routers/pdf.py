@@ -1,28 +1,29 @@
 """Endpoints para subida y extracción de PDF."""
 from pathlib import Path
-
-<<<<<<< HEAD
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
-from sqlmodel import Session, select
 from datetime import time
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from sqlmodel import Session, select
 
 from app.config import settings
 from app.core.database import get_session
-from app.models.schemas import MapaCurricularExtraido, OfertaExtraida, CourseRead, TimeSlotRead
-from app.models.db_models import SourceFile, Course, TimeSlot
+from app.core.redis_client import (
+    get_cached_source_file_id,
+    set_cached_source_file_id,
+)
+from app.models.db_models import Course, SourceFile, TimeSlot
+from app.models.schemas import (
+    DayEnum,
+    HorarioSlot,
+    MapaCurricularExtraido,
+    MateriaExtraida,
+    OfertaExtraida,
+)
 from app.services.ocr_pdf import ocr_disponible
 from app.services.pdf_extractor import PdfExtractorService
 from app.services.parser_mapa import ParserMapaCurricular
 from app.utils.hashing import compute_file_hash
-=======
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-
-from app.config import settings
-from app.models.schemas import MapaCurricularExtraido, OfertaExtraida
-from app.services.ocr_pdf import ocr_disponible
-from app.services.pdf_extractor import PdfExtractorService
-from app.services.parser_mapa import ParserMapaCurricular
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 extractor = PdfExtractorService()
@@ -44,16 +45,13 @@ def _data_dir() -> Path:
 def get_ocr_disponible() -> dict:
     """
     Indica si el OCR (Tesseract) esta disponible para PDFs que son solo imagen.
-    Si es true, POST /api/pdf/upload-mapa intentara extraer texto por OCR cuando el PDF no tenga texto.
     """
     return {"ocr_disponible": ocr_disponible()}
 
 
 @router.get("/list")
 def list_data_pdfs() -> dict:
-    """
-    Lista los PDF disponibles en el directorio data/ (para uso con Docker).
-    """
+    """Lista los PDF disponibles en el directorio data/."""
     data = _data_dir()
     if not data.exists():
         return {"files": [], "data_dir": str(data)}
@@ -64,14 +62,26 @@ def list_data_pdfs() -> dict:
     return {"files": files, "data_dir": str(data)}
 
 
+@router.get("/file")
+def get_pdf_file(
+    filename: str = Query(..., description="Nombre del PDF en data/ para visualizar"),
+):
+    """Sirve un PDF del directorio data/ para visualización."""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo no permitido")
+    path = _data_dir() / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Archivo no encontrado: {filename}")
+    if path.suffix.lower() != ".pdf":
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF")
+    return FileResponse(path, media_type="application/pdf", filename=filename)
+
+
 @router.post("/extract-from-data", response_model=OfertaExtraida)
 def extract_from_data(
     filename: str = Query(..., description="Nombre del PDF en data/ (ej. Ajustes Banner 2026.pdf)"),
 ) -> OfertaExtraida:
-    """
-    Extrae oferta desde un PDF que está en el directorio data/.
-    Útil cuando el backend corre en Docker con el volumen data montado.
-    """
+    """Extrae oferta desde un PDF que está en el directorio data/."""
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Nombre de archivo no permitido")
     path = _data_dir() / filename
@@ -85,136 +95,137 @@ def extract_from_data(
     return extractor.extract_from_path(path)
 
 
+def _source_file_to_oferta(source: SourceFile) -> OfertaExtraida:
+    """Reconstruye OfertaExtraida desde un SourceFile en BD."""
+    materias_recuperadas = []
+    for course in source.courses:
+        horarios_legacy = [
+            HorarioSlot(
+                dia=slot.day.value,
+                hora_inicio=slot.start_time.strftime("%H:%M"),
+                hora_fin=slot.end_time.strftime("%H:%M"),
+                aula=slot.classroom,
+            )
+            for slot in course.time_slots
+        ]
+        materias_recuperadas.append(
+            MateriaExtraida(
+                nrc=course.nrc,
+                nombre=course.subject_name,
+                clave=course.course_code,
+                grupo=course.group_code,
+                profesor=course.professor,
+                creditos=course.credits,
+                horarios=horarios_legacy,
+            )
+        )
+    return OfertaExtraida(
+        filas=_reconstruir_filas_desde_courses(source),
+        materias=materias_recuperadas,
+        archivos_procesados=[source.filename],
+    )
+
+
+def _reconstruir_filas_desde_courses(source: SourceFile) -> list:
+    """Reconstruye filas desde courses para compatibilidad con frontend."""
+    from app.models.schemas import FilaOferta
+
+    filas = []
+    for course in source.courses:
+        for slot in course.time_slots:
+            filas.append(
+                FilaOferta(
+                    nrc=course.nrc,
+                    clave=course.course_code,
+                    materia=course.subject_name,
+                    secc=course.group_code,
+                    dias=slot.day.value,
+                    hora_inicio=slot.start_time.strftime("%H:%M"),
+                    hora_fin=slot.end_time.strftime("%H:%M"),
+                    profesor=course.professor or "",
+                    salon=slot.classroom or "",
+                )
+            )
+    return filas
+
+
 @router.post("/upload", response_model=OfertaExtraida)
-<<<<<<< HEAD
 async def upload_and_extract(
     file: UploadFile = File(...),
-    session: Session = Depends(get_session)
+    carrera: str | None = Form(None, description="Carrera o profesión (opcional)"),
+    session: Session = Depends(get_session),
 ) -> OfertaExtraida:
     """
     Sube un PDF de oferta (ej. Banner BUAP) y extrae filas.
-    
-    Verifica si el archivo ya fue procesado (por hash). Si es así, retorna los datos de la BD.
-    Si no, procesa el PDF, guarda los resultados en la BD y los retorna.
+    Cache por hash (Redis + BD): mismo documento = reutiliza extracción (varios usuarios).
+    carrera: opcional, para organizar PDFs por carrera.
     """
-    print(f"📥 Recibiendo archivo: {file.filename}")
-    
-=======
-async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
-    """
-    Sube un PDF de oferta (ej. Banner BUAP) y extrae filas en formato:
-
-    **NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon**
-
-    Respuesta:
-    - **filas**: lista de registros, uno por cada combinación dia/hora/salon
-      (ej. 50030, CCOS 260, Redes de Computadoras, OO1, L, 10:00-10:59, TREVINO - SANCHEZ DANIEL, 1CCO4/305).
-    - **materias**: vista agrupada por materia para horarios y export.
-    - **archivos_procesados**: nombre del PDF.
-    """
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
 
-    upload_dir = _ensure_upload_dir()
+    _ensure_upload_dir()
     size_mb = settings.max_upload_mb
-<<<<<<< HEAD
-    
-    # Leer contenido
+
     try:
         content = await file.read()
-    except Exception as e:
-        print(f"❌ Error leyendo archivo: {e}")
+    except Exception:
         raise HTTPException(status_code=400, detail="Error leyendo el archivo")
 
-=======
-    content = await file.read()
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     if len(content) > size_mb * 1024 * 1024:
         raise HTTPException(
             status_code=413,
             detail=f"El archivo supera el límite de {size_mb} MB",
         )
 
-<<<<<<< HEAD
-    # 1. Calcular Hash
     file_hash = compute_file_hash(content)
-    print(f"🔑 Hash del archivo: {file_hash}")
-    
-    # 2. Buscar en BD
+
+    # 1. Cache Redis: busqueda rapida por hash
+    cached_id = get_cached_source_file_id(file_hash)
+    if cached_id is not None:
+        try:
+            existing_file = session.get(SourceFile, cached_id)
+            if existing_file and existing_file.courses:
+                return _source_file_to_oferta(existing_file)
+        except Exception:
+            pass
+
+    # 2. BD: busqueda por hash
     try:
-        # Usamos unique() para que cargue las relaciones correctamente si es necesario en versiones nuevas
-        existing_file = session.exec(select(SourceFile).where(SourceFile.file_hash == file_hash)).first()
+        existing_file = session.exec(
+            select(SourceFile).where(SourceFile.file_hash == file_hash)
+        ).first()
     except Exception as e:
-        print(f"❌ Error consultando DB: {e}")
         raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
 
-    # Verificar si es un Cache Hit válido (tiene cursos guardados)
     if existing_file:
         if not existing_file.courses:
-            print("⚠️ Archivo encontrado pero SIN cursos (Zombie Record). Re-procesando...")
-            # Limpiamos el registro corrupto para re-procesar
             session.delete(existing_file)
             session.commit()
             existing_file = None
         else:
-            print("⚡ Cache Hit! Retornando datos de la base de datos.")
-            # Reconstruir OfertaExtraida desde la BD
-            materias_recuperadas = []
-            for course in existing_file.courses:
-                horarios_legacy = []
-                for slot in course.time_slots:
-                    start_str = slot.start_time.strftime("%H:%M")
-                    end_str = slot.end_time.strftime("%H:%M")
-                    
-                    from app.models.schemas import HorarioSlot
-                    horarios_legacy.append(HorarioSlot(
-                        dia=slot.day.value,
-                        hora_inicio=start_str,
-                        hora_fin=end_str,
-                        aula=slot.classroom
-                    ))
-                
-                from app.models.schemas import MateriaExtraida
-                materia = MateriaExtraida(
-                    nrc=course.nrc,
-                    nombre=course.subject_name,
-                    clave=course.course_code,
-                    grupo=course.group_code,
-                    profesor=course.professor,
-                    creditos=course.credits,
-                    horarios=horarios_legacy
-                )
-                materias_recuperadas.append(materia)
-                
-            return OfertaExtraida(
-                filas=[],
-                materias=materias_recuperadas,
-                archivos_procesados=[existing_file.filename]
-            )
+            set_cached_source_file_id(file_hash, existing_file.id)
+            return _source_file_to_oferta(existing_file)
 
-    # 3. Cache Miss: Procesar PDF
-    print("🐢 Cache Miss. Procesando PDF (esto puede tardar)...")
     from fastapi.concurrency import run_in_threadpool
+
     try:
-        oferta = await run_in_threadpool(extractor.extract_from_bytes, content, file.filename or "document.pdf")
+        oferta = await run_in_threadpool(
+            extractor.extract_from_bytes, content, file.filename or "document.pdf"
+        )
     except ValueError as ve:
-        print(f"❌ Error de validación PDF: {ve}")
-        # Retornamos 422 para indicar que el contenido no se pudo procesar (regla de negocio/parser)
         raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
-        print(f"❌ Error extrayendo PDF: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Falló la extracción del PDF: {str(e)}")
-    
-    # 4. Guardar en BD (Transacción Atomica)
-    print("💾 Guardando en base de datos...")
+        raise HTTPException(status_code=500, detail=f"Falló la extracción: {str(e)}")
+
     try:
-        # Crear SourceFile pero NO commitear aún
-        new_source = SourceFile(filename=file.filename, file_hash=file_hash)
+        carrera_clean = (carrera or "").strip() or None
+        new_source = SourceFile(
+            filename=file.filename or "document.pdf",
+            file_hash=file_hash,
+            carrera=carrera_clean,
+        )
         session.add(new_source)
-        
+
         for materia in oferta.materias:
             db_course = Course(
                 nrc=materia.nrc or "",
@@ -223,10 +234,9 @@ async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
                 subject_name=materia.nombre,
                 professor=materia.profesor,
                 credits=materia.creditos,
-                # Enlace directo al objeto, SQLAlchemy resuelve el ID al commitear
-                source_file=new_source 
+                source_file=new_source,
             )
-            
+
             for h in materia.horarios:
                 try:
                     start_parts = h.hora_inicio.split(":")
@@ -237,7 +247,6 @@ async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
                     t_start = time(0, 0)
                     t_end = time(0, 0)
 
-                from app.models.schemas import DayEnum
                 try:
                     dia_enum = DayEnum(h.dia)
                 except ValueError:
@@ -247,46 +256,31 @@ async def upload_and_extract(file: UploadFile = File(...)) -> OfertaExtraida:
                     day=dia_enum,
                     start_time=t_start,
                     end_time=t_end,
-                    classroom=h.aula
+                    classroom=h.aula,
                 )
                 db_course.time_slots.append(slot)
-            
+
             session.add(db_course)
-        
-        # Un solo commit al final. Si falla algo, no se guarda nada (ni el SourceFile).
+
         session.commit()
         session.refresh(new_source)
-        print("✅ Guardado exitoso.")
-
+        set_cached_source_file_id(file_hash, new_source.id)
     except Exception as e:
-        print(f"❌ Error guardando en DB: {e}")
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error guardando en BD: {str(e)}")
 
     return oferta
-=======
-    return extractor.extract_from_bytes(content, file.filename or "document.pdf")
 
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 @router.post("/upload-mapa", response_model=MapaCurricularExtraido)
 async def upload_mapa_curricular(
-    file: UploadFile | None = File(None, description="PDF del mapa curricular. Enviar como multipart/form-data con la clave 'file'."),
+    file: UploadFile | None = File(None, description="PDF del mapa curricular"),
 ) -> MapaCurricularExtraido:
-    """
-    Sube un PDF de mapa curricular (malla curricular) y extrae las materias del plan.
-
-    **Importante:** La petición debe ser **multipart/form-data** con un campo llamado **file**
-    (no JSON). En Swagger: elegir archivo en el input 'file' y luego Execute.
-
-    En cada bloque del mapa se espera: nombre de la materia y cuatro números
-    (Horas teoría, Horas lab, Trabajo indep., Créditos). Si el PDF es solo imagen,
-    la extracción puede quedar vacía (en el futuro se podría usar OCR).
-    """
+    """Sube un PDF de mapa curricular y extrae las materias del plan."""
     if file is None or not file.filename:
         raise HTTPException(
             status_code=400,
-            detail="Falta el archivo. Envie el PDF como multipart/form-data con el campo 'file' (no JSON).",
+            detail="Falta el archivo. Envie como multipart/form-data con campo 'file'.",
         )
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")

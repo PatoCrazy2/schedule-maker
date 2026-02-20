@@ -1,51 +1,32 @@
 import logging
-<<<<<<< HEAD
-from contextlib import asynccontextmanager # <--- 1. Importar esto
-=======
+from contextlib import asynccontextmanager
 
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 from fastapi import FastAPI
 from app.config import settings
-from app.routers import export, pdf, schedules
-from app.core.database import init_db  
+from app.routers import export, pdf, professors, schedules
+from app.core.database import init_db
 
-<<<<<<< HEAD
-# Configuración de Logs
 logging.getLogger("app").setLevel(logging.INFO)
 
-# 3. Definir el Lifespan (Lo que pasa al arrancar)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Aquí llamamos a la creación de tablas
-    print("🚀 Iniciando DB y creando tablas si no existen...")
+    print("Iniciando DB y creando tablas si no existen...")
     init_db()
     yield
-    # Aquí iría código para cuando se apaga la app (opcional)
 
-# 4. Inyectar el lifespan en FastAPI
-app = FastAPI(
-    title=settings.app_name,
-    description="API para extraer oferta de PDF, generar horarios y exportar a PDF/Calendario.",
-    lifespan=lifespan # <--- CONECTARLO AQUÍ
-=======
-from app.config import settings
-
-logging.getLogger("app").setLevel(logging.INFO)
-from app.routers import export, pdf, schedules
 
 app = FastAPI(
     title=settings.app_name,
     description="API para extraer oferta de PDF, generar horarios y exportar a PDF/Calendario.",
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
+    lifespan=lifespan,
 )
 
 app.include_router(pdf.router, prefix="/api")
 app.include_router(schedules.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
-<<<<<<< HEAD
-=======
+app.include_router(professors.router, prefix="/api")
 
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
 
 @app.get("/")
 def read_root() -> dict:

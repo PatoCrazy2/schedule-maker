@@ -13,17 +13,17 @@ from app.models.schemas import (
     normalizar_hora_militar,
 )
 
-# BUAP: L=Lunes, M=Martes, X=Miércoles, J=Jueves, V=Viernes, S=Sábado. A suele ser Miércoles en algunos sistemas.
+# BUAP: L=Lunes, A=Martes, M=Miércoles, J=Jueves, V=Viernes, S=Sábado, D=Domingo
 DIAS_CODIGO_A_NOMBRE: dict[str, str] = {
     "L": "Lunes",
-    "M": "Martes",
-    "X": "Miércoles",
-    "A": "Miércoles",
-    "W": "Miércoles",
+    "A": "Martes",
+    "M": "Miércoles",
     "J": "Jueves",
     "V": "Viernes",
     "S": "Sábado",
     "D": "Domingo",
+    "X": "Miércoles",
+    "W": "Miércoles",
 }
 
 
@@ -82,29 +82,20 @@ def normalizar_horario_slot(s: HorarioSlot) -> HorarioSlot:
         dia=nombre or codigo or s.dia,
         hora_inicio=normalizar_hora(s.hora_inicio),
         hora_fin=normalizar_hora(s.hora_fin),
-<<<<<<< HEAD
         aula=s.aula.strip() if s.aula else None,
-=======
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
     )
 
 
 def normalizar_materia(m: MateriaExtraida) -> MateriaExtraida:
     """Normaliza una materia (horarios con día y hora)."""
     return MateriaExtraida(
-<<<<<<< HEAD
         nrc=(m.nrc or "").strip() or None,
-=======
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
         nombre=m.nombre.strip(),
         clave=(m.clave or "").strip() or None,
         grupo=(m.grupo or "").strip() or None,
         horarios=[normalizar_horario_slot(s) for s in m.horarios],
         profesor=(m.profesor or "").strip() or None,
-<<<<<<< HEAD
-=======
         aula=(m.aula or "").strip() or None,
->>>>>>> e40962f (refactor: update docker-compose and backend configuration; remove frontend Dockerfile)
         creditos=m.creditos,
     )
 

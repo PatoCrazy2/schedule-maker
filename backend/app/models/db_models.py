@@ -9,6 +9,7 @@ class SourceFile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     filename: str
     file_hash: str = Field(index=True, unique=True)
+    carrera: Optional[str] = Field(default=None, index=True)
     processed_at: datetime = Field(default_factory=datetime.utcnow)
 
     courses: List["Course"] = Relationship(back_populates="source_file")
@@ -40,3 +41,35 @@ class TimeSlot(SQLModel, table=True):
     
     course_id: Optional[int] = Field(default=None, foreign_key="course.id")
     course: Optional[Course] = Relationship(back_populates="time_slots")
+
+
+class ProfessorReview(SQLModel, table=True):
+    """Instrumento formal de evaluacion docente (escala 1-5)."""
+    __tablename__ = "professor_review"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    professor_name: str = Field(index=True)
+    materia_nombre: Optional[str] = Field(default=None, index=True)
+
+    dominio_contenido: Optional[int] = Field(default=None, ge=1, le=5)
+    claridad: Optional[int] = Field(default=None, ge=1, le=5)
+    metodologia: Optional[int] = Field(default=None, ge=1, le=5)
+    justicia_evaluacion: Optional[int] = Field(default=None, ge=1, le=5)
+    exigencia: Optional[int] = Field(default=None, ge=1, le=5)
+    apoyo: Optional[int] = Field(default=None, ge=1, le=5)
+    organizacion: Optional[int] = Field(default=None, ge=1, le=5)
+    impacto: Optional[int] = Field(default=None, ge=1, le=5)
+
+    justificacion_dominio: Optional[str] = None
+    justificacion_claridad: Optional[str] = None
+    justificacion_metodologia: Optional[str] = None
+    justificacion_justicia: Optional[str] = None
+    justificacion_exigencia: Optional[str] = None
+    justificacion_apoyo: Optional[str] = None
+    justificacion_organizacion: Optional[str] = None
+    justificacion_impacto: Optional[str] = None
+
+    comentario_general: Optional[str] = None
+
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    comment: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
