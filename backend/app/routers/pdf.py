@@ -2,6 +2,7 @@
 from pathlib import Path
 from datetime import time
 
+import logging
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
@@ -24,6 +25,8 @@ from app.services.ocr_pdf import ocr_disponible
 from app.services.pdf_extractor import PdfExtractorService
 from app.services.parser_mapa import ParserMapaCurricular
 from app.utils.hashing import compute_file_hash
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 extractor = PdfExtractorService()
@@ -92,7 +95,10 @@ def extract_from_data(
         )
     if path.suffix.lower() != ".pdf":
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF")
-    return extractor.extract_from_path(path)
+    try:
+        return extractor.extract_from_path(path)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="no hay parser para ese archivo")
 
 
 def _source_file_to_oferta(source: SourceFile) -> OfertaExtraida:
@@ -178,6 +184,7 @@ async def upload_and_extract(
         )
 
     file_hash = compute_file_hash(content)
+    logger.info(f"Procesando archivo '{file.filename}' con hash: {file_hash}")
 
     # 1. Cache Redis: busqueda rapida por hash
     cached_id = get_cached_source_file_id(file_hash)
@@ -185,6 +192,7 @@ async def upload_and_extract(
         try:
             existing_file = session.get(SourceFile, cached_id)
             if existing_file and existing_file.courses:
+                logger.info(f"Acierto en Redis para hash {file_hash}. Reutilizando extracción.")
                 return _source_file_to_oferta(existing_file)
         except Exception:
             pass
@@ -203,18 +211,23 @@ async def upload_and_extract(
             session.commit()
             existing_file = None
         else:
+            logger.info(f"Acierto en base de datos para hash {file_hash}. Reutilizando extracción.")
             set_cached_source_file_id(file_hash, existing_file.id)
             return _source_file_to_oferta(existing_file)
 
     from fastapi.concurrency import run_in_threadpool
 
+    logger.info(f"Hash {file_hash} no encontrado en caché/BD. Iniciando extracción para '{file.filename}'")
     try:
         oferta = await run_in_threadpool(
             extractor.extract_from_bytes, content, file.filename or "document.pdf"
         )
-    except ValueError as ve:
-        raise HTTPException(status_code=422, detail=str(ve))
+        logger.info(f"Extracción exitosa para '{file.filename}'")
+    except ValueError:
+        logger.warning(f"Error 422: No hay parser válido para '{file.filename}'")
+        raise HTTPException(status_code=422, detail="no hay parser para ese archivo")
     except Exception as e:
+        logger.error(f"Error 500: Falló la extracción de '{file.filename}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Falló la extracción: {str(e)}")
 
     try:
