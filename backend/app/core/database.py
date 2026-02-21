@@ -1,5 +1,6 @@
+import time
+import logging
 from typing import Generator
-
 from sqlalchemy import text
 from sqlmodel import create_engine, Session, SQLModel
 from app.config import settings
@@ -53,6 +54,19 @@ def run_migrations():
             raise
 
 
+logger = logging.getLogger(__name__)
+
 def init_db():
-    SQLModel.metadata.create_all(engine)
-    run_migrations()
+    retries = 5
+    for i in range(retries):
+        try:
+            SQLModel.metadata.create_all(engine)
+            run_migrations()
+            break
+        except Exception as e:
+            if i < retries - 1:
+                logger.warning(f"Esperando a la base de datos... (intento {i+1}/{retries})")
+                time.sleep(2)
+            else:
+                logger.error("No se pudo conectar a la base de datos.")
+                raise
