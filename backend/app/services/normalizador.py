@@ -30,14 +30,15 @@ DIAS_CODIGO_A_NOMBRE: dict[str, str] = {
 def normalizar_dia(codigo: str) -> tuple[str, str]:
     """
     Devuelve (codigo_normalizado, nombre).
-    Codigo se deja en mayúscula de un caracter; nombre en español.
+    Solo para un dia. Para multiples, no extraer nombre.
     """
     c = (codigo or "").strip().upper()
     if not c:
         return ("", "")
-    if len(c) > 1:
-        c = c[0]
-    nombre = DIAS_CODIGO_A_NOMBRE.get(c, codigo.strip())
+    # Map X or W to M (Wednesday)
+    if c == "X" or c == "W":
+        c = "M"
+    nombre = DIAS_CODIGO_A_NOMBRE.get(c, c)
     return (c, nombre)
 
 
@@ -59,15 +60,24 @@ def normalizar_clave(clave: str) -> str:
     return (clave or "").replace(" ", "").strip().upper()
 
 
+def normalizar_dias_multiples(dias_raw: str) -> str:
+    """Limpia la cadena de días (ej. 'L M A' -> 'LMA') para FilaOferta."""
+    dias = (dias_raw or "").upper()
+    dias_limpios = [d for d in dias if d in "LAMJVSDXW"]
+    # Reemplazar equivalencias de miércoles
+    dias_limpios = ["M" if d in ["X", "W"] else d for d in dias_limpios]
+    return "".join(dias_limpios) if dias_limpios else dias_raw.strip()
+
+
 def normalizar_fila(f: FilaOferta) -> FilaOferta:
     """Normaliza una fila de oferta (días, horas)."""
-    codigo, nombre_dia = normalizar_dia(f.dias)
+    dias_limpios = normalizar_dias_multiples(f.dias)
     return FilaOferta(
         nrc=f.nrc.strip(),
         clave=f.clave.strip(),
         materia=f.materia.strip(),
         secc=f.secc.strip(),
-        dias=codigo or f.dias,
+        dias=dias_limpios,
         hora_inicio=normalizar_hora(f.hora_inicio),
         hora_fin=normalizar_hora(f.hora_fin),
         profesor=f.profesor.strip(),
@@ -76,10 +86,10 @@ def normalizar_fila(f: FilaOferta) -> FilaOferta:
 
 
 def normalizar_horario_slot(s: HorarioSlot) -> HorarioSlot:
-    """Normaliza un slot de horario (dia a código + nombre opcional en dia)."""
-    codigo, nombre = normalizar_dia(s.dia)
+    """Normaliza un slot de horario (asegura día como un caracter)."""
+    codigo, _ = normalizar_dia(s.dia)
     return HorarioSlot(
-        dia=nombre or codigo or s.dia,
+        dia=codigo or s.dia, # Guardar el código corto (L, M, etc.)
         hora_inicio=normalizar_hora(s.hora_inicio),
         hora_fin=normalizar_hora(s.hora_fin),
         aula=s.aula.strip() if s.aula else None,

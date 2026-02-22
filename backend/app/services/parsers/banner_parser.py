@@ -191,15 +191,23 @@ def _filas_a_materias(filas: list[FilaOferta]) -> list[MateriaExtraida]:
         grupos[key].append(f)
     materias = []
     for (nrc, clave, materia, secc), grupo in grupos.items():
-        horarios = [
-            HorarioSlot(
-                dia=f.dias,
-                hora_inicio=f.hora_inicio,
-                hora_fin=f.hora_fin,
-                aula=f.salon or None,
-            )
-            for f in grupo
-        ]
+        horarios = []
+        for f in grupo:
+            dias_raw = (f.dias or "").upper()
+            dias_validos = [d for d in dias_raw if d in "LAMJVSDXW"]
+            if not dias_validos:
+                dias_validos = [dias_raw.strip()] if dias_raw.strip() else []
+                
+            for dia_letra in dias_validos:
+                horarios.append(
+                    HorarioSlot(
+                        dia=dia_letra,
+                        hora_inicio=f.hora_inicio,
+                        hora_fin=f.hora_fin,
+                        aula=f.salon or None,
+                    )
+                )
+
         profesor = grupo[0].profesor if grupo else ""
         salon = grupo[0].salon if grupo else ""
         materias.append(
