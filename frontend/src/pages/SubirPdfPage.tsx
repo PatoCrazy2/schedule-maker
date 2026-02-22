@@ -102,7 +102,7 @@ export function SubirPdfPage() {
           <PdfViewer src={pdfUrl} filename={file?.name} />
         </div>
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Profesores extraidos</h3>
+          <h3 className="mb-2 text-sm font-semibold">Materias extraidas</h3>
           <OfertaTable
             materias={oferta?.materias ?? []}
             filas={oferta?.filas}
