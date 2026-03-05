@@ -1,5 +1,5 @@
 import { api } from "./client"
-import type { OfertaExtraida, PdfListResponse } from "@/types/api"
+import type { OfertaExtraida, PdfListResponse, SourceFileSearchResponse } from "@/types/api"
 
 export async function listDataPdfs(): Promise<PdfListResponse> {
   const { data } = await api.get<PdfListResponse>("/api/pdf/list")
@@ -31,5 +31,15 @@ export async function uploadPdf(
       },
     ],
   })
+  return data
+}
+
+export async function searchSourceFiles(query: string): Promise<SourceFileSearchResponse[]> {
+  const { data } = await api.get<SourceFileSearchResponse[]>("/api/v1/files/search", { params: { q: query } })
+  return data
+}
+
+export async function getOfertaByHash(fileHash: string): Promise<OfertaExtraida> {
+  const { data } = await api.get<OfertaExtraida>(`/api/v1/files/${fileHash}/oferta`)
   return data
 }

@@ -64,6 +64,15 @@ export interface PdfListResponse {
   data_dir: string
 }
 
+export interface SourceFileSearchResponse {
+  file_hash: string
+  filename: string
+  carrera: string | null
+  facultad: string | null
+  campus: string | null
+  periodo: string | null
+}
+
 export interface ProfessorReviewCreate {
   professor_name: string
   materia_nombre?: string
