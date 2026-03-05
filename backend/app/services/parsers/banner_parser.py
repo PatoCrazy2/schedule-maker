@@ -160,6 +160,33 @@ class BannerOfertaParser(BaseOfertaParser):
         filas = self.extraer_filas(contenido, nombre_archivo)
         return _filas_a_materias(filas)
 
+    def extraer_metadata(self, contenido: ContenidoPDF) -> dict:
+        """
+        Extrae facultad, carrera, campus y periodo del texto del PDF tipo Banner.
+        """
+        texto = contenido.texto_completo or ""
+        metadata = {
+            "facultad": None,
+            "carrera": None,
+            "campus": None,
+            "periodo": None
+        }
+        
+        facultad_match = re.search(r"(?i)(Facultad de[^\r\n]*)", texto)
+        if facultad_match:
+            metadata["facultad"] = facultad_match.group(1).strip()
+            
+        carrera_campus_match = re.search(r"(?i)([^\r\n]+?)\s*-\s*CAMPUS\s*([^\r\n]*)", texto)
+        if carrera_campus_match:
+            metadata["carrera"] = carrera_campus_match.group(1).strip()
+            metadata["campus"] = carrera_campus_match.group(2).strip()
+
+        periodo_match = re.search(r"(?i)PROGRAMACI[OÓ]N ACAD[EÉ]MICA\s*-\s*([^\r\n]*)", texto)
+        if periodo_match:
+            metadata["periodo"] = periodo_match.group(1).strip()
+
+        return metadata
+
 
 def _es_encabezado(celda: str) -> bool:
     return (celda or "").upper().strip() in ENCABEZADOS

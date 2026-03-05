@@ -84,6 +84,10 @@ class MateriaExtraida(BaseModel):
 class OfertaExtraida(BaseModel):
     """Resultado de extraer un PDF de oferta BUAP."""
     file_hash: Optional[str] = Field(None, description="Hash del archivo PDF")
+    facultad: Optional[str] = Field(None, description="Facultad a la que pertenece la oferta")
+    carrera: Optional[str] = Field(None, description="Carrera a la que pertenece la oferta")
+    campus: Optional[str] = Field(None, description="Campus al que pertenece la oferta")
+    periodo: Optional[str] = Field(None, description="Periodo académico de la oferta")
     filas: list[FilaOferta] = Field(default_factory=list)
     materias: list[MateriaExtraida] = Field(default_factory=list)
     archivos_procesados: list[str] = Field(default_factory=list)

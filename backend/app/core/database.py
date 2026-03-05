@@ -22,6 +22,15 @@ def run_migrations():
                 "ALTER TABLE source_file ADD COLUMN IF NOT EXISTS carrera VARCHAR(255)"
             ))
             conn.execute(text(
+                "ALTER TABLE source_file ADD COLUMN IF NOT EXISTS facultad VARCHAR(255)"
+            ))
+            conn.execute(text(
+                "ALTER TABLE source_file ADD COLUMN IF NOT EXISTS campus VARCHAR(255)"
+            ))
+            conn.execute(text(
+                "ALTER TABLE source_file ADD COLUMN IF NOT EXISTS periodo VARCHAR(255)"
+            ))
+            conn.execute(text(
                 "ALTER TABLE professor_review ADD COLUMN IF NOT EXISTS claridad INTEGER"
             ))
             conn.execute(text(
