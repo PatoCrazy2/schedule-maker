@@ -126,6 +126,7 @@ def _source_file_to_oferta(source: SourceFile) -> OfertaExtraida:
             )
         )
     return OfertaExtraida(
+        file_hash=source.file_hash,
         filas=_reconstruir_filas_desde_courses(source),
         materias=materias_recuperadas,
         archivos_procesados=[source.filename],
@@ -222,6 +223,7 @@ async def upload_and_extract(
         oferta = await run_in_threadpool(
             extractor.extract_from_bytes, content, file.filename or "document.pdf"
         )
+        oferta.file_hash = file_hash
         logger.info(f"Extracción exitosa para '{file.filename}'")
     except ValueError:
         logger.warning(f"Error 422: No hay parser válido para '{file.filename}'")
