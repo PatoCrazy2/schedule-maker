@@ -9,7 +9,7 @@ const navItems = [
 
 export function NavBar() {
   return (
-    <nav className="sticky top-0 z-10 border-b bg-background">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
         <NavLink
           to="/"
