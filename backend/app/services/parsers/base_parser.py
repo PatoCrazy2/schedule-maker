@@ -49,3 +49,10 @@ class BaseOfertaParser(ABC):
     ) -> list[MateriaExtraida]:
         """Extrae la lista de materias (con horarios) del contenido."""
         pass
+
+    def extraer_metadata(self, contenido: ContenidoPDF) -> dict:
+        """
+        Extrae metadata adicional del PDF. Por defecto vacío.
+        Los parsers específicos pueden sobrescribir esto.
+        """
+        return {}

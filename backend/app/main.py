@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from app.config import settings
-from app.routers import export, pdf, professors, schedules
+from app.routers import export, pdf, professors, schedules, queries
 from app.core.database import init_db
 
 logging.getLogger("app").setLevel(logging.INFO)
@@ -26,6 +26,7 @@ app.include_router(pdf.router, prefix="/api")
 app.include_router(schedules.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(professors.router, prefix="/api")
+app.include_router(queries.router, prefix="/api")
 
 
 @app.get("/")

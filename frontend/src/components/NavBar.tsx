@@ -1,22 +1,26 @@
 import { NavLink } from "react-router-dom"
-import { Home, Upload, Users, Star, Calendar } from "lucide-react"
+import { Home, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { to: "/", icon: Home, label: "Home" },
-  { to: "/subir-pdf", icon: Upload, label: "Subir PDF" },
-  { to: "/ver-profesores", icon: Users, label: "Ver profesores" },
-  { to: "/resenar", icon: Star, label: "Resenar" },
+  { to: "/", icon: Home, label: "Inicio" },
   { to: "/crear-horario", icon: Calendar, label: "Crear horario" },
 ]
 
 export function NavBar() {
   return (
-    <nav className="sticky top-0 z-10 border-b bg-background">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
         <NavLink
           to="/"
           className="mr-4 text-lg font-semibold text-primary"
+          onClick={(e) => {
+            // Si ya estamos en la página de inicio, evitamos la recarga y hacemos scroll
+            if (window.location.pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
         >
           Schedule Maker
         </NavLink>

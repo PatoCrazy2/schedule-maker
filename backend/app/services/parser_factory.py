@@ -8,6 +8,7 @@ from typing import Optional
 from app.services.lector_pdf import ContenidoPDF
 from app.services.parsers.base_parser import BaseOfertaParser
 from app.services.parsers.banner_parser import BannerOfertaParser
+from app.services.parsers.cu2_parser import Cu2OfertaParser
 
 
 class ParserFactory:
@@ -16,6 +17,7 @@ class ParserFactory:
     def __init__(self) -> None:
         self.parsers: list[BaseOfertaParser] = [
             BannerOfertaParser(),
+            Cu2OfertaParser(),
         ]
 
     def obtener_parser(

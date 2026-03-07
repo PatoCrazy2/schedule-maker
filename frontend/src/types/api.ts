@@ -8,6 +8,7 @@ export interface HorarioSlot {
 }
 
 export interface MateriaExtraida {
+  file_hash?: string
   nrc?: string
   nombre: string
   clave?: string
@@ -31,14 +32,45 @@ export interface FilaOferta {
 }
 
 export interface OfertaExtraida {
+  file_hash?: string
   filas: FilaOferta[]
   materias: MateriaExtraida[]
   archivos_procesados: string[]
 }
 
+export interface SubjectResponse {
+  name: string
+}
+
+export interface TimeSlotResponse {
+  day: string
+  start_time: string
+  end_time: string
+  classroom?: string
+}
+
+export interface CourseResponse {
+  nrc: string
+  course_code: string
+  group_code: string
+  subject_name: string
+  professor?: string
+  credits?: number
+  time_slots: TimeSlotResponse[]
+}
+
 export interface PdfListResponse {
   files: string[]
   data_dir: string
+}
+
+export interface SourceFileSearchResponse {
+  file_hash: string
+  filename: string
+  carrera: string | null
+  facultad: string | null
+  campus: string | null
+  periodo: string | null
 }
 
 export interface ProfessorReviewCreate {

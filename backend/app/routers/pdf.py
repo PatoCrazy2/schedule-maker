@@ -126,6 +126,11 @@ def _source_file_to_oferta(source: SourceFile) -> OfertaExtraida:
             )
         )
     return OfertaExtraida(
+        file_hash=source.file_hash,
+        facultad=source.facultad,
+        carrera=source.carrera,
+        campus=source.campus,
+        periodo=source.periodo,
         filas=_reconstruir_filas_desde_courses(source),
         materias=materias_recuperadas,
         archivos_procesados=[source.filename],
@@ -222,6 +227,7 @@ async def upload_and_extract(
         oferta = await run_in_threadpool(
             extractor.extract_from_bytes, content, file.filename or "document.pdf"
         )
+        oferta.file_hash = file_hash
         logger.info(f"Extracción exitosa para '{file.filename}'")
     except ValueError:
         logger.warning(f"Error 422: No hay parser válido para '{file.filename}'")
@@ -231,11 +237,14 @@ async def upload_and_extract(
         raise HTTPException(status_code=500, detail=f"Falló la extracción: {str(e)}")
 
     try:
-        carrera_clean = (carrera or "").strip() or None
+        carrera_clean = (carrera or oferta.carrera or "").strip() or None
         new_source = SourceFile(
             filename=file.filename or "document.pdf",
             file_hash=file_hash,
             carrera=carrera_clean,
+            facultad=oferta.facultad,
+            campus=oferta.campus,
+            periodo=oferta.periodo,
         )
         session.add(new_source)
 

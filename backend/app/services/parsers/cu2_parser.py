@@ -1,8 +1,8 @@
 """
-Parser para PDF de oferta tipo Banner BUAP.
+Parser para PDF de oferta tipo CU2 BUAP.
 
-Formato objetivo por fila: NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon.
-Ejemplo: 50030 CCOS 260 Redes de Computadoras OO1 L 1000-1059 TREVINO - SANCHEZ DANIEL 1CCO4/305
+Formato objetivo por fila: NRC, Clave, Materia, Secc, Campus, Dias, Hora, Profesor, Salon.
+Ejemplo: 50030 CCOS 260 Redes de Computadoras OO1 CU2 L 1000-1059 TREVINO - SANCHEZ DANIEL 1CCO4/305
 """
 import re
 from typing import Optional
@@ -18,29 +18,29 @@ from app.services.parsers.base_parser import BaseOfertaParser
 
 # Encabezados que no son datos
 ENCABEZADOS = frozenset(
-    {"NRC", "CLAVE", "MATERIA", "SECC", "DIAS", "DÍA", "HORA", "PROFESOR", "SALON", "SALÓN", "CRÉDITOS"}
+    {"NRC", "CLAVE", "MATERIA", "SECC", "CAMPUS", "DIAS", "DÍA", "HORA", "PROFESOR", "SALON", "SALÓN", "CRÉDITOS"}
 )
 
 
-class BannerOfertaParser(BaseOfertaParser):
-    """Parser para ofertas Banner BUAP: columnas NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon."""
+class Cu2OfertaParser(BaseOfertaParser):
+    """Parser para ofertas CU2 BUAP: columnas NRC, Clave, Materia, Secc, Campus, Dias, Hora, Profesor, Salon."""
 
     def puede_parsear(self, contenido: ContenidoPDF, nombre_archivo: str = "") -> bool:
         texto = (contenido.texto_completo or "").upper()
         
-        # 1. Verificación estricta: debe contener estrictamente TODAS las 8 palabras
-        palabras_encontradas = set(re.findall(r"NRC|CLAVE|MATERIA|SECC|DIAS|HORA|PROFESOR|SALON", texto))
-        if len(palabras_encontradas) != 8:
+        # 1. Verificación estricta: debe contener estrictamente TODAS las 9 palabras base
+        palabras_encontradas = set(re.findall(r"NRC|CLAVE|MATERIA|SECC|CAMPUS|DIAS|HORA|PROFESOR|SALON", texto))
+        if len(palabras_encontradas) != 9:
             return False
             
         # 2. Si no hay tablas, se rechaza inmediatamente
         if not contenido.tablas_por_pagina or not any(t for t in contenido.tablas_por_pagina):
             return False
             
-        # 3. Validar estrictamente que la tabla tenga solo 8 columnas
+        # 3. Validar estrictamente que la tabla tenga solo 9 columnas
         for pag in contenido.tablas_por_pagina:
             for tabla in pag:
-                if tabla and len(tabla) > 0 and len(tabla[0]) == 8:
+                if tabla and len(tabla) > 0 and len(tabla[0]) == 9:
                     return True
                     
         return False
@@ -48,7 +48,7 @@ class BannerOfertaParser(BaseOfertaParser):
     def extraer_filas(
         self, contenido: ContenidoPDF, nombre_archivo: str = ""
     ) -> list[FilaOferta]:
-        """Extrae filas con columnas: NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon (índices 0-7)."""
+        """Extrae filas con columnas: NRC, Clave, Materia, Secc, Campus, Dias, Hora, Profesor, Salon (índices 0-8)."""
         filas: list[FilaOferta] = []
         for tablas in contenido.tablas_por_pagina:
             for table in tablas:
@@ -61,18 +61,20 @@ class BannerOfertaParser(BaseOfertaParser):
         return filas
 
     def _row_to_fila(self, row: list[str]) -> Optional[FilaOferta]:
-        """Convierte una fila de tabla en FilaOferta. Columnas: 0=NRC, 1=Clave, 2=Materia, 3=Secc, 4=Dias, 5=Hora, 6=Profesor, 7=Salon."""
+        """Convierte una fila de tabla en FilaOferta. Columnas: 0=NRC, 1=Clave, 2=Materia, 3=Secc, 4=Campus, 5=Dias, 6=Hora, 7=Profesor, 8=Salon."""
         r = [str(c).strip() for c in row]
-        if len(r) < 8 or all(not c for c in r):
+        if len(r) < 9 or all(not c for c in r):
             return None
         nrc = r[0] or ""
         clave = r[1] or ""
         materia = r[2] or ""
         secc = r[3] or ""
-        dias = r[4] or ""
-        hora_raw = r[5] or ""
-        profesor = r[6] or ""
-        salon = r[7] or ""
+        # campus = r[4] or ""  Se ignora a nivel de FilaOferta
+        dias = r[5] or ""
+        hora_raw = r[6] or ""
+        profesor = r[7] or ""
+        salon = r[8] or ""
+        
         if not nrc or not materia or _es_encabezado(nrc) or _es_encabezado(materia):
             return None
         hora_inicio, hora_fin = _parsear_rango_hora(hora_raw)
@@ -93,8 +95,8 @@ class BannerOfertaParser(BaseOfertaParser):
 
     def _extraer_filas_desde_texto(self, texto: str) -> list[FilaOferta]:
         """
-        Líneas tipo: 50030 CCOS 260 Redes de Computadoras OO1 L 1000-1059 TREVINO - SANCHEZ DANIEL 1CCO4/305
-        Parseo: hora (1000-1059), luego salon (ultimo token), profesor (resto), luego izquierda: nrc, clave+materia, secc, dias.
+        Líneas tipo: 50030 CCOS 260 Redes de Computadoras OO1 CU2 L 1000-1059 TREVINO - SANCHEZ DANIEL 1CCO4/305
+        Parseo aproximado asumiendo un espacio extra por el campus.
         """
         filas = []
         hora_pat = re.compile(r"(\d{4}-\d{4})")
@@ -120,16 +122,23 @@ class BannerOfertaParser(BaseOfertaParser):
             if not izq:
                 continue
             parts_izq = izq.split()
-            if len(parts_izq) < 4:
+            if len(parts_izq) < 5:  # Necesitamos NRC, Clave(1 o 2), Materia, Secc, Campus, Dias
                 continue
             nrc = parts_izq[0]
             if not nrc.isdigit() or len(nrc) != 5:
                 continue
-            secc = parts_izq[-2]
+            
+            # parts_izq[-1] = Dias
+            # parts_izq[-2] = Campus (e.g. CU2)
+            # parts_izq[-3] = Secc
             dias = parts_izq[-1]
             if len(dias) != 1 or dias.upper() not in "LMAJVIBSD":
                 continue
-            clave_materia = parts_izq[1:-2]
+            
+            # Extraer secc asumiendo que el penúltimo es campus y antepenúltimo es secc
+            secc = parts_izq[-3]
+            
+            clave_materia = parts_izq[1:-3]
             if len(clave_materia) >= 2:
                 clave = f"{clave_materia[0]} {clave_materia[1]}"
                 materia = " ".join(clave_materia[2:])
@@ -162,7 +171,7 @@ class BannerOfertaParser(BaseOfertaParser):
 
     def extraer_metadata(self, contenido: ContenidoPDF) -> dict:
         """
-        Extrae facultad, carrera, campus y periodo del texto del PDF tipo Banner.
+        Extrae facultad, carrera, campus y periodo del texto del PDF tipo CU2.
         """
         texto = contenido.texto_completo or ""
         metadata = {

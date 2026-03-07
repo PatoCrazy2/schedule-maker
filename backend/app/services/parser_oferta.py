@@ -42,7 +42,14 @@ class ParserOferta:
         logger.info("Parser elegido para %s: %s", nombre_archivo, type(parser).__name__)
         filas = parser.extraer_filas(contenido, nombre_archivo)
         materias = _filas_a_materias(filas) if filas else parser.extraer_materias(contenido, nombre_archivo)
+        
+        metadata = parser.extraer_metadata(contenido)
+        
         oferta = OfertaExtraida(
+            facultad=metadata.get("facultad"),
+            carrera=metadata.get("carrera"),
+            campus=metadata.get("campus"),
+            periodo=metadata.get("periodo"),
             filas=filas,
             materias=materias,
             archivos_procesados=[nombre_archivo],

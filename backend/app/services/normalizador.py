@@ -113,6 +113,11 @@ def normalizar_materia(m: MateriaExtraida) -> MateriaExtraida:
 def normalizar_oferta(oferta: OfertaExtraida) -> OfertaExtraida:
     """Normaliza filas y materias de una oferta extraída."""
     return OfertaExtraida(
+        file_hash=oferta.file_hash,
+        facultad=oferta.facultad,
+        carrera=oferta.carrera,
+        campus=oferta.campus,
+        periodo=oferta.periodo,
         filas=[normalizar_fila(f) for f in oferta.filas],
         materias=[normalizar_materia(m) for m in oferta.materias],
         archivos_procesados=list(oferta.archivos_procesados),

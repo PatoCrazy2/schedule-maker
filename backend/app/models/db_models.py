@@ -9,7 +9,10 @@ class SourceFile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     filename: str
     file_hash: str = Field(index=True, unique=True)
+    facultad: Optional[str] = Field(default=None)
     carrera: Optional[str] = Field(default=None, index=True)
+    campus: Optional[str] = Field(default=None)
+    periodo: Optional[str] = Field(default=None)
     processed_at: datetime = Field(default_factory=datetime.utcnow)
 
     courses: List["Course"] = Relationship(back_populates="source_file")

@@ -83,6 +83,11 @@ class MateriaExtraida(BaseModel):
 
 class OfertaExtraida(BaseModel):
     """Resultado de extraer un PDF de oferta BUAP."""
+    file_hash: Optional[str] = Field(None, description="Hash del archivo PDF")
+    facultad: Optional[str] = Field(None, description="Facultad a la que pertenece la oferta")
+    carrera: Optional[str] = Field(None, description="Carrera a la que pertenece la oferta")
+    campus: Optional[str] = Field(None, description="Campus al que pertenece la oferta")
+    periodo: Optional[str] = Field(None, description="Periodo académico de la oferta")
     filas: list[FilaOferta] = Field(default_factory=list)
     materias: list[MateriaExtraida] = Field(default_factory=list)
     archivos_procesados: list[str] = Field(default_factory=list)
@@ -219,3 +224,31 @@ class ProfessorListItem(BaseModel):
     courses: List[ProfessorCourseDetail] = Field(default_factory=list)
     average_rating: float
     total_reviews: int
+
+
+class SubjectResponse(BaseModel):
+    """Respuesta con el nombre de una materia."""
+    name: str
+
+
+class TimeSlotResponse(BaseModel):
+    """Un bloque de horario para una materia (DTO DB)."""
+    day: DayEnum
+    start_time: time
+    end_time: time
+    classroom: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CourseResponse(BaseModel):
+    """Una materia/grupo recuperado de la DB (DTO)."""
+    nrc: str
+    course_code: str
+    group_code: str
+    subject_name: str
+    professor: Optional[str] = None
+    credits: Optional[int] = None
+    time_slots: list[TimeSlotResponse] = Field(default_factory=list)
+    
+    model_config = ConfigDict(from_attributes=True)
