@@ -14,6 +14,13 @@ export function NavBar() {
         <NavLink
           to="/"
           className="mr-4 text-lg font-semibold text-primary"
+          onClick={(e) => {
+            // Si ya estamos en la página de inicio, evitamos la recarga y hacemos scroll
+            if (window.location.pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
         >
           Schedule Maker
         </NavLink>
