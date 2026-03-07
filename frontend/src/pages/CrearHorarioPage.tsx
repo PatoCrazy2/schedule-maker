@@ -151,7 +151,7 @@ export function CrearHorarioPage() {
       {/* Selectores */}
       <div className="flex flex-col gap-4">
         <div>
-          <label className="mb-2 block text-sm font-medium">1. Selecciona una Materia</label>
+          <label className="mb-2 block text-sm font-medium">Selecciona una Materia</label>
           <select
             className="w-full max-w-sm rounded-md border p-2 text-sm"
             value={selectedSubject}
@@ -169,7 +169,7 @@ export function CrearHorarioPage() {
         {selectedSubject && (
           <div>
             <h3 className="mb-3 text-sm font-medium">
-              2. Elige el grupo/horario
+              Elige el grupo/horario
               {coursesLoading && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted-foreground" />}
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ export function CrearHorarioPage() {
                     )}
                   >
                     <div className="font-medium">
-                      Grupo: {c.group_code} {c.professor && `(${c.professor})`}
+                      NRC: {c.nrc} {c.professor && `(${c.professor})`}
                     </div>
                     {c.time_slots.length > 0 ? (
                       <div className="mt-1 text-xs text-muted-foreground">
@@ -350,7 +350,7 @@ export function CrearHorarioPage() {
                   className="rounded-lg border p-4"
                 >
                   <h4 className="font-medium">
-                    {m.nombre} - {m.clave} ({m.grupo})
+                    {m.nombre} - {m.clave} ({m.nrc})
                   </h4>
                   {m.profesor && (
                     <p className="text-sm text-muted-foreground">{m.profesor}</p>
