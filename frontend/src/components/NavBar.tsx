@@ -1,10 +1,9 @@
 import { NavLink } from "react-router-dom"
-import { Home, Upload, Calendar } from "lucide-react"
+import { Home, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { to: "/", icon: Home, label: "Home" },
-  { to: "/subir-pdf", icon: Upload, label: "Subir PDF" },
+  { to: "/", icon: Home, label: "Inicio" },
   { to: "/crear-horario", icon: Calendar, label: "Crear horario" },
 ]
 
