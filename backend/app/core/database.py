@@ -6,7 +6,14 @@ from sqlmodel import create_engine, Session, SQLModel
 from app.config import settings
 from app.models.db_models import Course, ProfessorReview, TimeSlot
 
-engine = create_engine(settings.database_url, echo=settings.debug)
+engine = create_engine(
+    settings.database_url,
+    echo=settings.debug,
+    pool_pre_ping=True,       # Comprueba que la conexión está viva antes de usarla
+    pool_recycle=300,         # Recicla conexiones descartándolas cada 5 minutos
+    pool_size=10,             # Número máximo de conexiones permanentes en el pool
+    max_overflow=10,          # Número máximo de conexiones extras si el pool se llena
+)
 
 
 def get_session() -> Generator[Session, None, None]:
