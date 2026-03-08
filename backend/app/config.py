@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_upload_mb: int = 20
     database_url: str = "postgresql://user:password@localhost:5432/schedule_db"
-    redis_url: str = "redis://localhost:6379/0"
 
     class Config:
         env_prefix = "SCHEDULE_"

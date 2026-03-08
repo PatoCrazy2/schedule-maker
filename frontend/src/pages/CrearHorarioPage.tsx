@@ -196,7 +196,7 @@ export function CrearHorarioPage() {
       <div className="p-6">
         <h2 className="mb-4 text-xl font-semibold">Crear horario</h2>
         <p className="rounded-lg border bg-muted/30 p-6 text-center text-muted-foreground">
-          Sube un PDF en la sección Subir PDF para cargar materias y crear tu
+          Sube un PDF en la sección Subir PDF o usa el Buscador de Archivos para cargar materias y crear tu
           horario.
         </p>
       </div>
