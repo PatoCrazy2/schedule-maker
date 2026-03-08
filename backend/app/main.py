@@ -27,7 +27,7 @@ app = FastAPI(
 # Configurar CORS para permitir peticiones desde el frontend (Vercel)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, restringe esto a la URL de tu frontend en Vercel
+    allow_origins=["https://scheduleemaker.vercel.app"],  # En producción, restringe esto a la URL de tu frontend en Vercel
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
