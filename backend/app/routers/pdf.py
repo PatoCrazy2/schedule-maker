@@ -9,10 +9,7 @@ from sqlmodel import Session, select
 
 from app.config import settings
 from app.core.database import get_session
-from app.core.redis_client import (
-    get_cached_source_file_id,
-    set_cached_source_file_id,
-)
+
 from app.models.db_models import Course, SourceFile, TimeSlot
 from app.models.schemas import (
     DayEnum,
@@ -191,18 +188,7 @@ async def upload_and_extract(
     file_hash = compute_file_hash(content)
     logger.info(f"Procesando archivo '{file.filename}' con hash: {file_hash}")
 
-    # 1. Cache Redis: busqueda rapida por hash
-    cached_id = get_cached_source_file_id(file_hash)
-    if cached_id is not None:
-        try:
-            existing_file = session.get(SourceFile, cached_id)
-            if existing_file and existing_file.courses:
-                logger.info(f"Acierto en Redis para hash {file_hash}. Reutilizando extracción.")
-                return _source_file_to_oferta(existing_file)
-        except Exception:
-            pass
-
-    # 2. BD: busqueda por hash
+    # Cache por hash en BD (UNIQUE constraint en file_hash):
     try:
         existing_file = session.exec(
             select(SourceFile).where(SourceFile.file_hash == file_hash)
@@ -217,7 +203,6 @@ async def upload_and_extract(
             existing_file = None
         else:
             logger.info(f"Acierto en base de datos para hash {file_hash}. Reutilizando extracción.")
-            set_cached_source_file_id(file_hash, existing_file.id)
             return _source_file_to_oferta(existing_file)
 
     from fastapi.concurrency import run_in_threadpool
@@ -286,7 +271,6 @@ async def upload_and_extract(
 
         session.commit()
         session.refresh(new_source)
-        set_cached_source_file_id(file_hash, new_source.id)
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error guardando en BD: {str(e)}")

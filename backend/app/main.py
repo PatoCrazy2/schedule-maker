@@ -16,10 +16,21 @@ async def lifespan(app: FastAPI):
     yield
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title=settings.app_name,
     description="API para extraer oferta de PDF, generar horarios y exportar a PDF/Calendario.",
     lifespan=lifespan,
+)
+
+# Configurar CORS para permitir peticiones desde el frontend (Vercel)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, restringe esto a la URL de tu frontend en Vercel
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(pdf.router, prefix="/api")
