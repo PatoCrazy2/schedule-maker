@@ -13,7 +13,7 @@ from app.models.schemas import (
     normalizar_hora_militar,
 )
 
-# BUAP: L=Lunes, A=Martes, M=Miércoles, J=Jueves, V=Viernes, S=Sábado, D=Domingo bien
+# BUAP: L=Lunes, A=Martes, M=Miércoles, J=Jueves, V=Viernes, S=Sábado, D=Domingo
 DIAS_CODIGO_A_NOMBRE: dict[str, str] = {
     "L": "Lunes",
     "A": "Martes",

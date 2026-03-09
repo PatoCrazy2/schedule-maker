@@ -114,7 +114,6 @@ function ProfessorDetail({ professor }: { professor: ProfessorListItem }) {
     {} as Record<string, ProfessorRatingResponse["reviews"]>
   )
 
-  
   return (
     <div className="border-t bg-muted/20 p-4">
       <div className="space-y-4">
