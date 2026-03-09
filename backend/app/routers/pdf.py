@@ -14,12 +14,16 @@ from app.models.db_models import Course, SourceFile, TimeSlot
 from app.models.schemas import (
     DayEnum,
     HorarioSlot,
+    KardexExtraido,
     MapaCurricularExtraido,
     MateriaExtraida,
     OfertaExtraida,
 )
-from app.services.ocr_pdf import ocr_disponible
+from app.services.lector_pdf import LectorPDF
+from app.services.ocr_pdf import extraer_texto_desde_bytes, ocr_disponible
+from app.services.horario_alumno_parser import parsear_horario_alumno_desde_bytes
 from app.services.pdf_extractor import PdfExtractorService
+from app.services.kardex_parser import parsear_kardex_desde_bytes
 from app.services.parser_mapa import ParserMapaCurricular
 from app.utils.hashing import compute_file_hash
 
@@ -276,6 +280,121 @@ async def upload_and_extract(
         raise HTTPException(status_code=500, detail=f"Error guardando en BD: {str(e)}")
 
     return oferta
+
+
+@router.post("/upload-kardex", response_model=KardexExtraido)
+async def upload_kardex(
+    file: UploadFile | None = File(None, description="PDF del kardex de autoservicios BUAP"),
+) -> KardexExtraido:
+    """Extrae materias aprobadas/en curso del kardex. No guarda datos personales."""
+    if file is None or not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Falta el archivo. Envielo como multipart/form-data con campo 'file'.",
+        )
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    content = await file.read()
+    if len(content) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"Limite {settings.max_upload_mb} MB")
+    materias = parsear_kardex_desde_bytes(content)
+    return KardexExtraido(materias_aprobadas=materias)
+
+
+@router.post("/extract-text")
+async def extract_text_from_pdf(
+    file: UploadFile | None = File(None, description="PDF del horario del alumno (escanear o imagen)"),
+) -> dict:
+    """
+    Extrae texto de un PDF (horario del alumno).
+    Usa pdfplumber primero; si el texto es minimo, intenta OCR.
+    Devuelve { "texto": "..." } para que el frontend parsee el horario.
+    """
+    if file is None or not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Falta el archivo. Envielo como multipart/form-data con campo 'file'.",
+        )
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    content = await file.read()
+    if len(content) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"Limite {settings.max_upload_mb} MB")
+
+    from fastapi.concurrency import run_in_threadpool
+
+    lector = LectorPDF()
+    try:
+        contenido = await run_in_threadpool(lector.leer_desde_bytes, content)
+        texto = (contenido.texto_completo or "").strip()
+    except Exception as e:
+        logger.warning("Error leyendo PDF con pdfplumber: %s", e)
+        texto = ""
+
+    def _run_ocr() -> str:
+        return extraer_texto_desde_bytes(content, dpi=200)
+
+    if len(texto) < 50 and ocr_disponible():
+        texto_ocr = await run_in_threadpool(_run_ocr)
+        if texto_ocr and len(texto_ocr.strip()) > len(texto):
+            texto = texto_ocr.strip()
+
+    return {"texto": texto or ""}
+
+
+@router.post("/upload-horario-alumno", response_model=OfertaExtraida)
+async def upload_horario_alumno(
+    file: UploadFile | None = File(None, description="PDF del horario de cursos inscritos"),
+) -> OfertaExtraida:
+    """
+    Sube PDF del horario del alumno y extrae materias directamente (sin texto intermedio).
+    Parsea tablas del PDF para codigo, seccion, materia, horarios, salon, NRC, profesor.
+    """
+    if file is None or not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Falta el archivo. Envielo como multipart/form-data con campo 'file'.",
+        )
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    content = await file.read()
+    if len(content) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"Limite {settings.max_upload_mb} MB")
+
+    from fastapi.concurrency import run_in_threadpool
+
+    materias: list = []
+
+    try:
+        oferta = await run_in_threadpool(
+            extractor.extract_from_bytes, content, file.filename or "document.pdf"
+        )
+        if oferta and oferta.materias:
+            return oferta
+    except Exception:
+        pass
+
+    try:
+        materias = await run_in_threadpool(
+            parsear_horario_alumno_desde_bytes,
+            content,
+            file.filename or "horario.pdf",
+        )
+    except Exception as e:
+        logger.exception("Error parseando horario alumno: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error al procesar el PDF: {str(e)}")
+
+    if not materias:
+        raise HTTPException(
+            status_code=422,
+            detail="No se pudieron extraer materias del PDF. Verifica que sea un horario de cursos BUAP.",
+        )
+
+    return OfertaExtraida(
+        materias=materias,
+        filas=[],
+        archivos_procesados=[file.filename or "horario.pdf"],
+    )
 
 
 @router.post("/upload-mapa", response_model=MapaCurricularExtraido)
