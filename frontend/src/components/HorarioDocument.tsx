@@ -15,23 +15,6 @@ function colorHex(tailwindClass: string): string {
     return COLORES_PDF[tailwindClass] ?? "#e5e7eb"
 }
 
-const DIAS_CORTO: Record<string, string> = {
-    Lunes: "Lun",
-    Martes: "Mar",
-    Miercoles: "Mie",
-    "Miércoles": "Mie",
-    Jueves: "Jue",
-    Viernes: "Vie",
-    Sabado: "Sab",
-    "Sábado": "Sab",
-    Domingo: "Dom",
-}
-
-function diaCorto(diaCode: string, diasNombresFn: (d: string) => string): string {
-    const full = diasNombresFn(diaCode)
-    return DIAS_CORTO[full] ?? full.slice(0, 3)
-}
-
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 export interface MateriaConColor {
     materia: MateriaExtraida
@@ -163,58 +146,6 @@ const s = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
     },
-
-    // ── Referencia de materias ─────────────────────────────────────────────
-    refTitulo: {
-        fontSize: 9,
-        fontFamily: "Helvetica-Bold",
-        marginTop: 12,
-        marginBottom: 6,
-        color: "#6b7280",
-    },
-    refGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    refCard: {
-        flexDirection: "row",
-        borderWidth: 1,
-        borderColor: "#d1d5db",
-        borderRadius: 4,
-        padding: 6,
-        marginBottom: 4,
-        width: "32%",
-        minWidth: 130,
-        backgroundColor: "#ffffff",
-    },
-    refColorBar: {
-        width: 4,
-        marginRight: 8,
-        borderRadius: 2,
-    },
-    refMateria: {
-        fontSize: 9,
-        fontFamily: "Helvetica-Bold",
-        color: "#111827",
-        marginBottom: 2,
-    },
-    refNrc: {
-        fontSize: 7,
-        fontFamily: "Helvetica-Bold",
-        color: "#374151",
-        marginBottom: 4,
-    },
-    refSlot: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 2,
-        fontSize: 6,
-        color: "#6b7280",
-    },
-    refSalon: {
-        fontFamily: "Helvetica-Bold",
-        color: "#111827",
-    },
 })
 
 // ─── Lógica de celda (idéntica a la de la tabla HTML) ────────────────────────
@@ -252,6 +183,7 @@ export function HorarioDocument({
     return (
         <Document>
             {showCalendar ? (
+                // ──────────────── Vista Calendario (horizontal) ────────────────────
                 <Page size="A4" orientation="landscape" style={s.page}>
                     <Text style={s.titulo}>Schedule-Maker</Text>
 
@@ -270,11 +202,14 @@ export function HorarioDocument({
                     {/* Filas de horas */}
                     {horas.map((hora) => (
                         <View key={hora} style={s.gridRow}>
+                            {/* Columna hora */}
                             <View style={s.horaCell}>
                                 <Text style={s.horaCellText}>
                                     {hora}:00{"\n"}{hora + 1}:00
                                 </Text>
                             </View>
+
+                            {/* Celdas de días */}
                             {diasOrden.map((dia) => {
                                 const info = getCeldaInfo(hora, dia, materiasConColor)
                                 return (
@@ -282,22 +217,11 @@ export function HorarioDocument({
                                         key={dia}
                                         style={[
                                             s.diaCell,
-                                            info
-                                                ? {
-                                                      backgroundColor: colorHex(info.color),
-                                                      borderLeftWidth: 4,
-                                                      borderLeftColor: colorHex(info.color),
-                                                  }
-                                                : {},
+                                            info ? { backgroundColor: colorHex(info.color) } : {},
                                         ]}
                                     >
                                         {info && (
                                             <>
-                                                {info.materia.nrc && (
-                                                    <Text style={s.materiaGrupo}>
-                                                        NRC: {info.materia.nrc}
-                                                    </Text>
-                                                )}
                                                 <Text style={s.materiaNombre}>
                                                     {info.materia.nombre}
                                                 </Text>
@@ -306,7 +230,7 @@ export function HorarioDocument({
                                                 </Text>
                                                 {info.slot.aula && (
                                                     <Text style={s.materiaAula}>
-                                                        Salon: {info.slot.aula}
+                                                        Salón: {info.slot.aula}
                                                     </Text>
                                                 )}
                                             </>
@@ -316,39 +240,12 @@ export function HorarioDocument({
                             })}
                         </View>
                     ))}
-
-                    {/* Referencia de materias en la misma hoja */}
-                    <Text style={s.refTitulo}>Referencia de materias</Text>
-                    <View style={s.refGrid}>
-                        {materiasConColor.map(({ materia, color }, i) => (
-                            <View key={`${materia.nrc}-${materia.grupo}-${i}`} style={s.refCard}>
-                                <View
-                                    style={[
-                                        s.refColorBar,
-                                        { backgroundColor: colorHex(color) },
-                                    ]}
-                                />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={s.refMateria}>{materia.nombre}</Text>
-                                    <Text style={s.refNrc}>NRC: {materia.nrc ?? "-"}</Text>
-                                    {(materia.horarios ?? []).map((h, j) => (
-                                        <View key={j} style={s.refSlot}>
-                                            <Text>
-                                                {diaCorto(h.dia, diasNombres)}{" "}
-                                                {(h.hora_inicio || "").substring(0, 5)}-
-                                                {(h.hora_fin || "").substring(0, 5)}
-                                            </Text>
-                                            <Text style={s.refSalon}>{h.aula ?? "-"}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        ))}
-                    </View>
                 </Page>
             ) : (
+                // ──────────────── Vista Lista (vertical) ───────────────────────────
                 <Page size="A4" orientation="portrait" style={s.page}>
                     <Text style={s.titulo}>Horario — Lista de materias</Text>
+
                     {selectedMaterias.map((m, i) => (
                         <View key={`${m.nrc}-${m.grupo}-${i}`} style={s.listaCard}>
                             <Text style={s.listaNombre}>
@@ -368,33 +265,6 @@ export function HorarioDocument({
                             </View>
                         </View>
                     ))}
-                    <Text style={s.refTitulo}>Referencia de materias</Text>
-                    <View style={s.refGrid}>
-                        {materiasConColor.map(({ materia, color }, i) => (
-                            <View key={`${materia.nrc}-${materia.grupo}-${i}`} style={s.refCard}>
-                                <View
-                                    style={[
-                                        s.refColorBar,
-                                        { backgroundColor: colorHex(color) },
-                                    ]}
-                                />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={s.refMateria}>{materia.nombre}</Text>
-                                    <Text style={s.refNrc}>NRC: {materia.nrc ?? "-"}</Text>
-                                    {(materia.horarios ?? []).map((h, j) => (
-                                        <View key={j} style={s.refSlot}>
-                                            <Text>
-                                                {diaCorto(h.dia, diasNombres)}{" "}
-                                                {(h.hora_inicio || "").substring(0, 5)}-
-                                                {(h.hora_fin || "").substring(0, 5)}
-                                            </Text>
-                                            <Text style={s.refSalon}>{h.aula ?? "-"}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        ))}
-                    </View>
                 </Page>
             )}
         </Document>

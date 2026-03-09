@@ -2,11 +2,9 @@ import { useMemo, useState, useEffect } from "react"
 import { pdf } from "@react-pdf/renderer"
 import { useOfertaStore } from "@/store/ofertaStore"
 import { useScheduleStore } from "@/store/scheduleStore"
-import { useKardexStore } from "@/store/kardexStore"
 import { diasToNombres } from "@/lib/dias"
-import { Download, Loader2, FileText, Upload } from "lucide-react"
+import { Download, Loader2, FileText } from "lucide-react"
 import { api } from "@/api/client"
-import { uploadKardex } from "@/api/pdf"
 import { cn } from "@/lib/utils"
 import { canAddMateria } from "@/lib/schedule"
 import type { SubjectResponse, CourseResponse, MateriaExtraida } from "@/types/api"
@@ -26,9 +24,7 @@ const COLORES_TAILWIND = [
 
 function formatHorario(dia: string, hi: string, hf: string, aula?: string) {
   const d = diasToNombres(dia)
-  const hiShort = (hi || "").substring(0, 5)
-  const hfShort = (hf || "").substring(0, 5)
-  return aula ? `${d} ${hiShort}-${hfShort} (${aula})` : `${d} ${hiShort}-${hfShort}`
+  return aula ? `${d} ${hi}-${hf} (${aula})` : `${d} ${hi}-${hf}`
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -51,61 +47,6 @@ export function CrearHorarioPage() {
   const [coursesOptions, setCoursesOptions] = useState<CourseResponse[]>([])
 
   const [isExporting, setIsExporting] = useState(false)
-
-  // Kardex: persiste al cambiar de pestaña
-  const {
-    materiasAprobadas,
-    kardexFileName,
-    setMateriasAprobadas,
-    setKardexFileName,
-    clearKardex,
-  } = useKardexStore()
-
-  const [kardexFile, setKardexFile] = useState<File | null>(null)
-  const [kardexLoading, setKardexLoading] = useState(false)
-
-  // ── Subir y procesar kardex ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!kardexFile) return
-    let cancelled = false
-    setKardexLoading(true)
-    uploadKardex(kardexFile)
-      .then((res) => {
-        if (!cancelled) {
-          setMateriasAprobadas(res.materias_aprobadas ?? [])
-          setKardexFileName(kardexFile.name)
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("Error al procesar kardex", err)
-          setMateriasAprobadas([])
-          setKardexFileName(null)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setKardexLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [kardexFile, setMateriasAprobadas, setKardexFileName])
-
-  // Normaliza nombre para comparacion (evitar falsos negativos por acentos/espacios)
-  const materiaCoincideConAprobada = (nombreOferta: string) => {
-    const n = (nombreOferta || "").toLowerCase().trim().replace(/\s+/g, " ")
-    if (!n) return false
-    return materiasAprobadas.some((aprob) => {
-      const a = (aprob || "").toLowerCase().trim().replace(/\s+/g, " ")
-      if (!a) return false
-      return n === a || n.startsWith(a) || a.startsWith(n)
-    })
-  }
-
-  const subjectsFiltrados = useMemo(() => {
-    if (materiasAprobadas.length === 0) return subjects
-    return subjects.filter((s) => !materiaCoincideConAprobada(s.name))
-  }, [subjects, materiasAprobadas])
 
   // ── Cargar materias disponibles ──────────────────────────────────────────
   useEffect(() => {
@@ -266,47 +207,39 @@ export function CrearHorarioPage() {
     <div className="space-y-6 p-6">
       <h2 className="text-xl font-semibold">Crear horario</h2>
 
-      {/* ── Layout dos columnas: materias (izq) | kardex (der) ──────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Columna izquierda: materias a inscribir */}
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold">Materias disponibles</h3>
-          <div>
-            <label className="mb-2 block text-sm font-medium">Selecciona una Materia</label>
-            <select
-              className="w-full max-w-sm rounded-md border p-2 text-sm"
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-            >
-              <option value="">-- Elige una materia --</option>
-              {subjectsFiltrados.map((sub, idx) => (
-                <option key={idx} value={sub.name}>
-                  {sub.name}
-                </option>
-              ))}
-            </select>
-            {materiasAprobadas.length > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Se excluyen {subjects.length - subjectsFiltrados.length} materias ya aprobadas
-              </p>
-            )}
-          </div>
+      {/* ── Selectores de materia / grupo ──────────────────────────────── */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium">Selecciona una Materia</label>
+          <select
+            className="w-full max-w-sm rounded-md border p-2 text-sm"
+            value={selectedSubject}
+            onChange={(e) => setSelectedSubject(e.target.value)}
+          >
+            <option value="">-- Elige una materia --</option>
+            {subjects.map((sub, idx) => (
+              <option key={idx} value={sub.name}>
+                {sub.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {selectedSubject && (
-            <div>
-              <h3 className="mb-3 text-sm font-medium">
-                Elige el grupo/horario
-                {coursesLoading && (
-                  <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {!coursesLoading && coursesOptions.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No se encontraron grupos para esta materia.
-                  </p>
-                )}
-                {coursesOptions.map((c, i) => {
+        {selectedSubject && (
+          <div>
+            <h3 className="mb-3 text-sm font-medium">
+              Elige el grupo/horario
+              {coursesLoading && (
+                <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {!coursesLoading && coursesOptions.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No se encontraron grupos para esta materia.
+                </p>
+              )}
+              {coursesOptions.map((c, i) => {
                 const isSelected = selectedMaterias.some(
                   (x) =>
                     (x.nrc ?? "") === (c.nrc ?? "") &&
@@ -384,77 +317,9 @@ export function CrearHorarioPage() {
             </div>
           </div>
         )}
-        </div>
-
-        {/* Columna derecha: cargar kardex (persiste al cambiar de pestaña) */}
-        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div>
-            <h3 className="text-sm font-semibold">Cargar kardex</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Sube el PDF desde autoservicios BUAP. Solo se extraen nombres de materias
-              aprobadas. Los datos se conservan al cambiar de pestaña. No se guardan
-              datos personales.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium transition-colors hover:border-primary/60 hover:bg-primary/10">
-              <Upload size={18} className="text-primary" />
-              <span>Seleccionar kardex (.pdf)</span>
-              <input
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f?.name.toLowerCase().endsWith(".pdf")) setKardexFile(f)
-                }}
-              />
-            </label>
-            {(kardexFile || kardexFileName) && (
-              <>
-                <span className="rounded-md bg-muted px-2.5 py-1.5 text-sm text-muted-foreground">
-                  {kardexFile?.name ?? kardexFileName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setKardexFile(null)
-                    clearKardex()
-                  }}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
-                >
-                  Quitar
-                </button>
-              </>
-            )}
-          </div>
-          {kardexLoading && (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              Extrayendo materias aprobadas...
-            </div>
-          )}
-          {materiasAprobadas.length > 0 && !kardexLoading && (
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Materias aprobadas ({materiasAprobadas.length})
-              </p>
-              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto">
-                {materiasAprobadas.map((m, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex rounded-md border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
-                  >
-                    {m}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* ── Botones de accion ───────────────────────────────────────────── */}
+      {/* ── Botones de acción ───────────────────────────────────────────── */}
       <div className="flex gap-2 pt-4">
         <button
           onClick={handleGenerarHorario}
@@ -487,9 +352,9 @@ export function CrearHorarioPage() {
 
       {/* ── Vista previa del horario en pantalla ────────────────────────── */}
       {selectedMaterias.length > 0 && (
-        <div className="rounded-xl border border-border bg-muted/5 p-4 sm:p-6">
+        <>
           {/* Toggle vista */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCalendar(true)}
               className={cn(
@@ -512,14 +377,13 @@ export function CrearHorarioPage() {
 
           {/* Vista Calendario */}
           {showCalendar ? (
-            <div className="space-y-4">
-            <div className="overflow-x-auto rounded-lg border border-border">
+            <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="min-w-[60px] px-3 py-2.5">Hora</th>
+                    <th className="min-w-[60px] px-2 py-2">Hora</th>
                     {DIAS_ORDEN.map((d) => (
-                      <th key={d} className="min-w-[80px] px-3 py-2.5">
+                      <th key={d} className="min-w-[80px] px-2 py-2">
                         {diasToNombres(d)}
                       </th>
                     ))}
@@ -528,7 +392,7 @@ export function CrearHorarioPage() {
                 <tbody>
                   {horasVisibles.map((hora) => (
                     <tr key={hora} className="border-b last:border-0">
-                      <td className="px-3 py-2 font-medium">
+                      <td className="px-2 py-1 font-medium">
                         {hora}:00 - {hora + 1}:00
                       </td>
                       {DIAS_ORDEN.map((dia) => {
@@ -554,13 +418,13 @@ export function CrearHorarioPage() {
                           <td
                             key={dia}
                             className={cn(
-                              "min-w-[80px] px-3 py-2 align-top border-x border-transparent",
+                              "min-w-[80px] px-2 py-1 align-top border-x border-transparent",
                               celdaInfo && celdaInfo.color,
                               celdaInfo && "border-white/20"
                             )}
                           >
                             {celdaInfo && (
-                              <div className="flex flex-col gap-0.5 text-[10px] leading-[1.3] overflow-hidden">
+                              <div className="flex flex-col text-[10px] leading-[1.3] overflow-hidden">
                                 <span
                                   className="font-bold line-clamp-2"
                                   title={celdaInfo.materia.nombre}
@@ -585,103 +449,32 @@ export function CrearHorarioPage() {
                 </tbody>
               </table>
             </div>
-            {/* Referencia: NRC, Materia, Salon */}
-            <div className="rounded-lg border border-border bg-muted/20 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Referencia de materias
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {materiasConColor.map(({ materia, color }, i) => (
-                  <div
-                    key={`${materia.nrc}-${materia.grupo}-${i}`}
-                    className="flex gap-3 rounded-lg border border-border bg-background p-3"
-                  >
-                    <div
-                      className={cn("h-14 w-4 shrink-0 rounded", color)}
-                      title={materia.nombre}
-                    />
-                    <div className="min-w-0 flex-1 text-xs">
-                      <div className="font-semibold text-foreground">
-                        {materia.nombre}
-                      </div>
-                      <div className="mt-1 font-medium tabular-nums text-foreground">
-                        NRC: {materia.nrc ?? "-"}
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        {(materia.horarios ?? []).map((h, j) => (
-                          <div
-                            key={j}
-                            className="flex items-center justify-between gap-2 rounded bg-muted/60 px-2 py-1"
-                          >
-                            <span className="text-[10px] text-muted-foreground">
-                              {diasToNombres(h.dia).slice(0, 3)}{" "}
-                              {(h.hora_inicio || "").substring(0, 5)}-
-                              {(h.hora_fin || "").substring(0, 5)}
-                            </span>
-                            <span className="font-semibold tabular-nums text-foreground">
-                              {h.aula ?? "-"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            </div>
           ) : (
             /* Vista Lista */
-            <div className="space-y-4">
-              {materiasConColor.map(({ materia, color }, i) => (
+            <div className="space-y-3">
+              {(selectedSchedule?.materias ?? selectedMaterias).map((m, i) => (
                 <div
-                  key={`${materia.nrc}-${materia.grupo}-${i}`}
-                  className="flex gap-4 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                  key={`${m.nrc}-${m.grupo}-${i}`}
+                  className="rounded-lg border p-4"
                 >
-                  <div
-                    className={cn("w-2 shrink-0", color)}
-                    title={materia.nombre}
-                  />
-                  <div className="flex-1 py-4 pr-4">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <h4 className="font-semibold text-foreground">
-                        {materia.nombre}
-                      </h4>
-                      <span className="text-xs text-muted-foreground">
-                        {materia.clave}  ·  Grp {materia.grupo}
+                  <h4 className="font-medium">
+                    {m.nombre} - {m.clave} ({m.nrc})
+                  </h4>
+                  {m.profesor && (
+                    <p className="text-sm text-muted-foreground">{m.profesor}</p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    {(m.horarios ?? []).map((h, j) => (
+                      <span key={j} className="rounded bg-muted px-2 py-0.5">
+                        {formatHorario(h.dia, h.hora_inicio, h.hora_fin, h.aula)}
                       </span>
-                    </div>
-                    <div className="mt-1 font-mono text-sm font-medium tabular-nums text-foreground">
-                      NRC: {materia.nrc ?? "-"}
-                    </div>
-                    {materia.profesor && (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {materia.profesor}
-                      </p>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(materia.horarios ?? []).map((h, j) => (
-                        <span
-                          key={j}
-                          className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-xs"
-                        >
-                          <span className="text-muted-foreground">
-                            {diasToNombres(h.dia)}{" "}
-                            {(h.hora_inicio || "").substring(0, 5)}-
-                            {(h.hora_fin || "").substring(0, 5)}
-                          </span>
-                          <span className="font-semibold text-foreground">
-                            {h.aula ?? "-"}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
