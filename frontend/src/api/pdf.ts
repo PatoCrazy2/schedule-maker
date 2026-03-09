@@ -43,3 +43,56 @@ export async function getOfertaByHash(fileHash: string): Promise<OfertaExtraida>
   const { data } = await api.get<OfertaExtraida>(`/api/v1/files/${fileHash}/oferta`)
   return data
 }
+
+export interface KardexExtraido {
+  materias_aprobadas: string[]
+}
+
+export interface ExtractTextResponse {
+  texto: string
+}
+
+export async function extractTextFromPdf(file: File): Promise<ExtractTextResponse> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const { data } = await api.post<ExtractTextResponse>("/api/pdf/extract-text", formData, {
+    timeout: 90_000,
+    transformRequest: [
+      (payload: unknown, headers?: Record<string, string>) => {
+        if (payload instanceof FormData && headers) delete headers["Content-Type"]
+        return payload
+      },
+    ],
+  })
+  return data
+}
+
+export async function uploadHorarioAlumno(file: File): Promise<OfertaExtraida> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const { data } = await api.post<OfertaExtraida>("/api/pdf/upload-horario-alumno", formData, {
+    timeout: 90_000,
+    transformRequest: [
+      (payload: unknown, headers?: Record<string, string>) => {
+        if (payload instanceof FormData && headers) delete headers["Content-Type"]
+        return payload
+      },
+    ],
+  })
+  return data
+}
+
+export async function uploadKardex(file: File): Promise<KardexExtraido> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const { data } = await api.post<KardexExtraido>("/api/pdf/upload-kardex", formData, {
+    timeout: 60_000,
+    transformRequest: [
+      (payload: unknown, headers?: Record<string, string>) => {
+        if (payload instanceof FormData && headers) delete headers["Content-Type"]
+        return payload
+      },
+    ],
+  })
+  return data
+}
