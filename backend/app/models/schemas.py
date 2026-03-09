@@ -123,6 +123,11 @@ class MapaCurricularExtraido(BaseModel):
     advertencia: Optional[str] = Field(None)
 
 
+class KardexExtraido(BaseModel):
+    """Resultado de extraer kardex BUAP. Solo nombres de materias, sin datos personales."""
+    materias_aprobadas: list[str] = Field(default_factory=list, description="Nombres de materias aprobadas o en curso")
+
+
 class MeterMateriasRequest(BaseModel):
     """Request para filtrar oferta por materias del plan."""
     claves_plan: list[str] = Field(...)
