@@ -97,10 +97,10 @@ export function HomePage() {
   const hasError = uploadMutation.isError || fetchOfertaMutation.isError
 
   return (
-    <div className="space-y-6 p-6 pb-24">
-      <h2 className="text-xl font-semibold">Subir o Cargar PDF</h2>
-
-      <div className="flex flex-col gap-4 relative z-10">
+    <div className="space-y-6 pb-24">
+      <div className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+        <h2 className="text-xl font-semibold">Subir o Cargar PDF</h2>
+        <div className="flex flex-col gap-4 relative z-10">
 
         {/* Buscador de archivos existentes */}
         <div className="flex flex-col gap-2 max-w-md relative">
@@ -185,21 +185,23 @@ export function HomePage() {
             </button>
           )}
         </div>
+        </div>
+
+        {hasError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            Error al procesar o cargar la oferta. Por favor, intente de nuevo.
+          </div>
+        )}
+
+        {fetchOfertaMutation.isPending && (
+          <div className="p-8 text-center text-sm text-muted-foreground animate-pulse border rounded-lg bg-muted/20">
+            Cargando datos de la base de datos...
+          </div>
+        )}
       </div>
 
-      {hasError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          Error al procesar o cargar la oferta. Por favor, intente de nuevo.
-        </div>
-      )}
-
-      {fetchOfertaMutation.isPending && (
-        <div className="p-8 text-center text-sm text-muted-foreground animate-pulse border rounded-lg bg-muted/20">
-          Cargando datos de la base de datos...
-        </div>
-      )}
-
-      <div className={`grid gap-6 ${pdfUrl ? "lg:grid-cols-2" : "grid-cols-1"}`}>
+      <div className="mx-auto max-w-6xl w-full min-w-0 px-4 pb-6">
+        <div className={`grid gap-6 ${pdfUrl ? "lg:grid-cols-2" : "grid-cols-1"}`}>
         {pdfUrl && (
           <div>
             <h3 className="mb-2 text-sm font-semibold flex items-center gap-2">
@@ -209,23 +211,27 @@ export function HomePage() {
             <PdfViewer src={pdfUrl} filename={file?.name} />
           </div>
         )}
-        <div>
+        <div className="rounded-xl border border-border bg-muted/5 p-4 sm:p-6">
           <h3 className="mb-2 text-sm font-semibold">Materias extraidas</h3>
           <OfertaTable
             materias={oferta?.materias ?? []}
             filas={oferta?.filas}
           />
         </div>
+        </div>
       </div>
 
       {oferta && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4">
           <button
             onClick={() => navigate("/crear-horario")}
-            className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg transition-transform hover:-translate-y-0.5 hover:bg-primary/90 active:translate-y-0"
+            className="group flex items-center gap-3 rounded-xl bg-primary px-10 py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 ring-2 ring-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30 hover:ring-primary/30 active:translate-y-0"
           >
             Siguiente: Crear Horario
-            <ArrowRight size={20} />
+            <ArrowRight
+              size={20}
+              className="transition-transform group-hover:translate-x-0.5"
+            />
           </button>
         </div>
       )}
