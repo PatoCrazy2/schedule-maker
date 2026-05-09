@@ -297,7 +297,13 @@ async def upload_kardex(
     content = await file.read()
     if len(content) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"Limite {settings.max_upload_mb} MB")
-    materias = parsear_kardex_desde_bytes(content)
+    from fastapi.concurrency import run_in_threadpool
+    try:
+        materias = await run_in_threadpool(parsear_kardex_desde_bytes, content)
+    except Exception as e:
+        logger.exception("Error procesando kardex: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error al procesar el kardex: {str(e)}")
+
     return KardexExtraido(materias_aprobadas=materias)
 
 

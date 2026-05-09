@@ -13,6 +13,19 @@ logging.getLogger("app").setLevel(logging.INFO)
 async def lifespan(app: FastAPI):
     print("Iniciando DB y creando tablas si no existen...")
     init_db()
+    # Warm-up: inicializar Tesseract en background para que la primera
+    # llamada a /upload-kardex no pague el costo de inicializacion (~0.5s)
+    try:
+        from app.services.kardex_ocr_parser import _ocr_disponible
+        import asyncio
+        loop = asyncio.get_event_loop()
+        disponible = await loop.run_in_executor(None, _ocr_disponible)
+        if disponible:
+            print("Tesseract OCR listo para kardex.")
+        else:
+            print("Tesseract no disponible — kardex usara solo ruta vectorial.")
+    except Exception as e:
+        print(f"Warm-up OCR omitido: {e}")
     yield
 
 
