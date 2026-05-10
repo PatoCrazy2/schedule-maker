@@ -4,9 +4,32 @@ Parser de kardex BUAP (autoservicios).
 Extrae unicamente los nombres de materias aprobadas o en curso.
 No se guardan datos personales, matriculas ni calificaciones.
 """
+import io
 import re
 
+import pdfplumber
+
 from app.services.lector_pdf import ContenidoPDF, LectorPDF
+
+
+def _leer_solo_texto(contenido_bytes: bytes) -> ContenidoPDF:
+    """
+    Lector rápido: extrae SOLO texto (sin tablas).
+    Evita pdfplumber.extract_tables() que en kardex BUAP tarda ~6-7s
+    por el análisis geométrico de bordes/celdas fusionadas.
+    """
+    buf = io.BytesIO(contenido_bytes)
+    texto_paginas: list[str] = []
+    with pdfplumber.open(buf) as pdf:
+        for page in pdf.pages:
+            raw = page.extract_text()
+            if raw:
+                texto_paginas.append(raw)
+    return ContenidoPDF(
+        texto_completo="\n".join(texto_paginas),
+        tablas_por_pagina=[],
+        num_paginas=len(texto_paginas),
+    )
 
 
 def _normalizar_nombre(nombre: str) -> str:
@@ -129,10 +152,37 @@ def extraer_materias_aprobadas(contenido: ContenidoPDF) -> list[str]:
 
 
 def parsear_kardex_desde_bytes(contenido_bytes: bytes) -> list[str]:
-    """Parsea kardex desde bytes (upload). Usa OCR si el texto es minimo."""
-    lector = LectorPDF()
-    contenido = lector.leer_desde_bytes(contenido_bytes)
+    """Parsea kardex desde bytes (upload).
+
+    Pipeline de 3 pasos (del más rápido al más lento):
+
+    1. OCR regional optimizado (kardex_ocr_parser): recorta header/pie,
+       divide en 2 columnas, aplica Tesseract --oem 1 --psm 6 en paralelo.
+       Objetivo: < 2s para kardex escaneado de 1 página.
+
+    2. Fallback texto pdfplumber (_leer_solo_texto): útil si el PDF no es
+       escaneado sino con texto incrustado.
+
+    3. Fallback OCR full-page (ocr_pdf): última opción si los anteriores
+       no produjeron resultados.
+    """
+    # ── Paso 1: OCR regional optimizado (kardex escaneado BUAP) ──────────────
+    try:
+        from app.services.kardex_ocr_parser import parsear_kardex_ocr
+        resultado = parsear_kardex_ocr(contenido_bytes)
+        if resultado:
+            return resultado
+    except Exception as e:
+        logger.warning("kardex_parser: OCR parser falló, continuando con fallback: %s", e)
+
+    # ── Paso 2: texto pdfplumber (PDF con texto incrustado) ──────────────────
+    contenido = _leer_solo_texto(contenido_bytes)
     resultado = extraer_materias_aprobadas(contenido)
+
+    if not resultado:
+        lector = LectorPDF()
+        contenido_con_tablas = lector.leer_desde_bytes(contenido_bytes)
+        resultado = extraer_materias_aprobadas(contenido_con_tablas)
 
     if not resultado and len((contenido.texto_completo or "").strip()) < 400:
         try:

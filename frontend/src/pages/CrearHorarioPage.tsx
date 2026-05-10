@@ -31,6 +31,9 @@ function formatHorario(dia: string, hi: string, hf: string, aula?: string) {
   return aula ? `${d} ${hiShort}-${hfShort} (${aula})` : `${d} ${hiShort}-${hfShort}`
 }
 
+// ─── Constantes de Configuración ─────────────────────────────────────────────
+const ENABLE_KARDEX = false // Cambiar a true cuando el parser sea estable
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 export function CrearHorarioPage() {
   const { oferta } = useOfertaStore()
@@ -266,8 +269,11 @@ export function CrearHorarioPage() {
     <div className="space-y-6 p-6">
       <h2 className="text-xl font-semibold">Crear horario</h2>
 
-      {/* ── Layout dos columnas: materias (izq) | kardex (der) ──────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* ── Layout: materias | kardex (opcional) ────────────────────────── */}
+      <div className={cn(
+        "grid gap-6",
+        ENABLE_KARDEX ? "lg:grid-cols-2" : "grid-cols-1 max-w-4xl mx-auto"
+      )}>
         {/* Columna izquierda: materias a inscribir */}
         <div className="flex flex-col gap-4">
           <h3 className="text-sm font-semibold">Materias disponibles</h3>
@@ -386,72 +392,74 @@ export function CrearHorarioPage() {
         )}
         </div>
 
-        {/* Columna derecha: cargar kardex (persiste al cambiar de pestaña) */}
-        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div>
-            <h3 className="text-sm font-semibold">Cargar kardex</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Sube el PDF desde autoservicios BUAP. Solo se extraen nombres de materias
-              aprobadas. Los datos se conservan al cambiar de pestaña. No se guardan
-              datos personales.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium transition-colors hover:border-primary/60 hover:bg-primary/10">
-              <Upload size={18} className="text-primary" />
-              <span>Seleccionar kardex (.pdf)</span>
-              <input
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f?.name.toLowerCase().endsWith(".pdf")) setKardexFile(f)
-                }}
-              />
-            </label>
-            {(kardexFile || kardexFileName) && (
-              <>
-                <span className="rounded-md bg-muted px-2.5 py-1.5 text-sm text-muted-foreground">
-                  {kardexFile?.name ?? kardexFileName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setKardexFile(null)
-                    clearKardex()
+        {/* Columna derecha: cargar kardex (solo si está habilitado) */}
+        {ENABLE_KARDEX && (
+          <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div>
+              <h3 className="text-sm font-semibold">Cargar kardex</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sube el PDF desde autoservicios BUAP. Solo se extraen nombres de materias
+                aprobadas. Los datos se conservan al cambiar de pestaña. No se guardan
+                datos personales.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium transition-colors hover:border-primary/60 hover:bg-primary/10">
+                <Upload size={18} className="text-primary" />
+                <span>Seleccionar kardex (.pdf)</span>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f?.name.toLowerCase().endsWith(".pdf")) setKardexFile(f)
                   }}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
-                >
-                  Quitar
-                </button>
-              </>
+                />
+              </label>
+              {(kardexFile || kardexFileName) && (
+                <>
+                  <span className="rounded-md bg-muted px-2.5 py-1.5 text-sm text-muted-foreground">
+                    {kardexFile?.name ?? kardexFileName}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKardexFile(null)
+                      clearKardex()
+                    }}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+                  >
+                    Quitar
+                  </button>
+                </>
+              )}
+            </div>
+            {kardexLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                Extrayendo materias aprobadas...
+              </div>
+            )}
+            {materiasAprobadas.length > 0 && !kardexLoading && (
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Materias aprobadas ({materiasAprobadas.length})
+                </p>
+                <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto">
+                  {materiasAprobadas.map((m, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex rounded-md border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
+                    >
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-          {kardexLoading && (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              Extrayendo materias aprobadas...
-            </div>
-          )}
-          {materiasAprobadas.length > 0 && !kardexLoading && (
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Materias aprobadas ({materiasAprobadas.length})
-              </p>
-              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto">
-                {materiasAprobadas.map((m, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex rounded-md border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
-                  >
-                    {m}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* ── Botones de accion ───────────────────────────────────────────── */}

@@ -77,28 +77,43 @@ const s = StyleSheet.create({
         borderColor: "#d1d5db",
     },
     horaCell: {
-        width: 56,
+        width: 55,
         borderRightWidth: 1,
         borderBottomWidth: 1,
         borderColor: "#d1d5db",
         padding: 3,
         justifyContent: "center",
+        backgroundColor: "#f9fafb",
     },
     headerCell: {
         flex: 1,
+        flexBasis: 0,
         borderRightWidth: 1,
         borderBottomWidth: 1,
         borderColor: "#d1d5db",
         padding: 3,
         alignItems: "center",
+        justifyContent: "center",
     },
     diaCell: {
         flex: 1,
+        flexBasis: 0,
         borderRightWidth: 1,
         borderBottomWidth: 1,
         borderColor: "#d1d5db",
         padding: 3,
         minHeight: 28,
+        position: "relative", // Necesario para la barra absoluta
+    },
+    colorBar: {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 4,
+    },
+    contentWrapper: {
+        paddingLeft: 4, // Espacio para que el texto no toque la barra
     },
     horaCellText: {
         fontSize: 7,
@@ -282,33 +297,36 @@ export function HorarioDocument({
                                         key={dia}
                                         style={[
                                             s.diaCell,
-                                            info
-                                                ? {
-                                                      backgroundColor: colorHex(info.color),
-                                                      borderLeftWidth: 4,
-                                                      borderLeftColor: colorHex(info.color),
-                                                  }
-                                                : {},
+                                            info ? { backgroundColor: colorHex(info.color) } : {},
                                         ]}
                                     >
                                         {info && (
                                             <>
-                                                {info.materia.nrc && (
+                                                {/* Barra de color absoluta: no afecta al layout */}
+                                                <View 
+                                                    style={[
+                                                        s.colorBar, 
+                                                        { backgroundColor: colorHex(info.color), opacity: 0.8 }
+                                                    ]} 
+                                                />
+                                                <View style={s.contentWrapper}>
+                                                    {info.materia.nrc && (
+                                                        <Text style={s.materiaGrupo}>
+                                                            NRC: {info.materia.nrc}
+                                                        </Text>
+                                                    )}
+                                                    <Text style={s.materiaNombre}>
+                                                        {info.materia.nombre}
+                                                    </Text>
                                                     <Text style={s.materiaGrupo}>
-                                                        NRC: {info.materia.nrc}
+                                                        Grp: {info.materia.grupo}
                                                     </Text>
-                                                )}
-                                                <Text style={s.materiaNombre}>
-                                                    {info.materia.nombre}
-                                                </Text>
-                                                <Text style={s.materiaGrupo}>
-                                                    Grp: {info.materia.grupo}
-                                                </Text>
-                                                {info.slot.aula && (
-                                                    <Text style={s.materiaAula}>
-                                                        Salon: {info.slot.aula}
-                                                    </Text>
-                                                )}
+                                                    {info.slot.aula && (
+                                                        <Text style={s.materiaAula}>
+                                                            Salón: {info.slot.aula}
+                                                        </Text>
+                                                    )}
+                                                </View>
                                             </>
                                         )}
                                     </View>
